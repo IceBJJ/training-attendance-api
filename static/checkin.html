@@ -11,9 +11,11 @@
     input, button { font-size: 18px; padding: 10px; width: 100%; margin-top: 6px; box-sizing: border-box; }
     button { cursor: pointer; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .msg { margin-top: 12px; padding: 12px; border-radius: 10px; border: 1px solid #ddd; }
+    .msg { margin-top: 12px; padding: 12px; border-radius: 10px; border: 1px solid #ddd; white-space: pre-wrap; }
     #reader { margin-top: 14px; }
     .small { font-size: 13px; opacity: 0.8; margin-top: 10px; }
+    .ok { border-color: #b7e4c7; }
+    .bad { border-color: #f4acb7; }
   </style>
 </head>
 <body>
@@ -44,7 +46,7 @@
   <div id="reader"></div>
 
   <div class="small">
-    Tip: If the camera doesn’t start, allow camera permissions and make sure you’re using http(s) from your phone.
+    Tip: You must open this page from https://... (not a file) to use the camera. If camera fails, allow camera permissions.
   </div>
 
   <!-- QR scanner library (CDN) -->
@@ -56,7 +58,17 @@
     const lastEl  = document.getElementById("last");
     const phoneEl = document.getElementById("phone");
 
-    function show(msg) { out.textContent = msg; }
+    function show(msg, ok=null) {
+      out.textContent = msg;
+      out.classList.remove("ok","bad");
+      if (ok === true) out.classList.add("ok");
+      if (ok === false) out.classList.add("bad");
+    }
+
+    // Build absolute URLs on the SAME origin (Render)
+    function apiUrl(path) {
+      return new URL(path, window.location.origin).toString();
+    }
 
     // Load saved identity
     firstEl.value = localStorage.getItem("bjj_first") || "";
@@ -73,25 +85,35 @@
 
     async function saveIdentity() {
       const id = getIdentity();
-      if (!id) return show("❌ Please enter first and last name.");
+      if (!id) return show("❌ Please enter first and last name.", false);
       localStorage.setItem("bjj_first", id.first);
       localStorage.setItem("bjj_last", id.last);
       localStorage.setItem("bjj_phone", id.phone || "");
-      show(`✅ Saved: ${id.first} ${id.last}`);
+      show(`✅ Saved: ${id.first} ${id.last}`, true);
     }
 
     async function validateMember() {
       const id = getIdentity();
-      if (!id) return show("❌ Please enter first and last name.");
-      const url = `/members/lookup?first_name=${encodeURIComponent(id.first)}&last_name=${encodeURIComponent(id.last)}`
-        + (id.phone ? `&phone=${encodeURIComponent(id.phone)}` : "");
-      const res = await fetch(url);
-      const data = await res.json();
+      if (!id) return show("❌ Please enter first and last name.", false);
+
+      const url = apiUrl(`/members/lookup?first_name=${encodeURIComponent(id.first)}&last_name=${encodeURIComponent(id.last)}`
+        + (id.phone ? `&phone=${encodeURIComponent(id.phone)}` : ""));
+
+      show(`🔍 Validating membership...\nGET ${url}`);
+
+      let res, data;
+      try {
+        res = await fetch(url, { method: "GET" });
+        data = await res.json();
+      } catch (e) {
+        return show(`❌ Validate failed (network/error)\n${e}`, false);
+      }
+
       if (data.valid) {
         const m = data.member;
-        show(`✅ Member OK: ${m.first_name} ${m.last_name} (${m.student_type}${m.belt_rank ? ", " + m.belt_rank : ""})`);
+        show(`✅ Member OK: ${m.first_name} ${m.last_name} (${m.student_type}${m.belt_rank ? ", " + m.belt_rank : ""})`, true);
       } else {
-        show(`❌ Member not found. Name (and phone if used) must match membership database.`);
+        show(`❌ Member not found.\nName (and phone if used) must match membership database.`, false);
       }
     }
 
@@ -100,9 +122,9 @@
 
     async function startScan() {
       const id = getIdentity();
-      if (!id) return show("❌ Enter your name first (first + last).");
+      if (!id) return show("❌ Enter your name first (first + last).", false);
 
-      // Optional: quick validation before scanning
+      // Optional validation before scan
       await validateMember();
 
       if (scanning) return;
@@ -117,11 +139,10 @@
           { facingMode: "environment" },
           { fps: 10, qrbox: { width: 250, height: 250 } },
           async (decodedText) => {
-            // Stop scanning once we get a QR
             await stopScan();
 
-            // Send to /scan
-            show(`🔎 QR read: ${decodedText}. Recording check-in…`);
+            const scanEndpoint = apiUrl("/scan");
+            show(`🔎 QR read: ${decodedText}\nPOST ${scanEndpoint}\nRecording check-in…`);
 
             const payload = {
               qr_value: decodedText,
@@ -130,48 +151,56 @@
               phone: id.phone || null
             };
 
-            const res = await fetch("/scan", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(payload)
-            });
+            let res, bodyText;
+            try {
+              res = await fetch(scanEndpoint, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+              });
+              bodyText = await res.text(); // keep raw text so we can show it even if JSON fails
+            } catch (e) {
+              return show(`❌ POST failed (network/error)\n${e}`, false);
+            }
 
-            const data = await res.json();
+            // Try JSON parse, but don't die if it's HTML or error text
+            let data = null;
+            try { data = JSON.parse(bodyText); } catch {}
+
             if (!res.ok) {
-              return show(`❌ ${data.detail || "Check-in failed"}`);
+              const detail = (data && (data.detail || data.message)) ? (data.detail || data.message) : bodyText;
+              return show(`❌ Check-in failed\nHTTP ${res.status}\n${detail}`, false);
             }
 
             // Friendly messages
-            if (data.status === "ok") {
-              show(`✅ Check-in recorded at ${data.facility_id || "facility"} (${data.user_id || ""})`);
-            } else if (data.status === "ignored") {
-              show(`ℹ️ Already checked in recently — ignored (15 min rule).`);
-            } else if (data.status === "too_soon") {
-              show(`⏳ Too soon — blocked (30 min rule).`);
+            if (data && data.status === "ok") {
+              const fac = data.facility_name || data.facility_id || "facility";
+              show(`✅ Check-in recorded at ${fac}\n${data.member_name ? "Member: " + data.member_name : ""}`, true);
+            } else if (data && data.status === "ignored") {
+              show(`ℹ️ Already checked in recently — ignored (15 min rule).`, true);
+            } else if (data && data.status === "too_soon") {
+              show(`⏳ Too soon — blocked (30 min rule).`, false);
             } else {
-              show(`✅ ${data.message || "Done"}`);
+              show(`✅ Done\n${bodyText}`, true);
             }
           },
-          (err) => {
-            // ignore scan errors (camera keeps running)
+          (_err) => {
+            // ignore per-frame scan errors
           }
         );
       } catch (e) {
         scanning = false;
-        show(`❌ Camera start failed. Allow camera permissions. Details: ${e}`);
+        show(`❌ Camera start failed.\nAllow camera permissions.\nDetails: ${e}`, false);
       }
     }
 
     async function stopScan() {
       if (!html5Qr || !scanning) return;
-      try {
-        await html5Qr.stop();
-      } catch {}
-      try {
-        await html5Qr.clear();
-      } catch {}
+      try { await html5Qr.stop(); } catch {}
+      try { await html5Qr.clear(); } catch {}
       scanning = false;
     }
   </script>
 </body>
 </html>
+
