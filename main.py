@@ -12,6 +12,22 @@ import os
 
 from db import init_db, get_conn
 
+
+@app.get("/debug/static")
+def debug_static():
+    return {
+        "base_dir": BASE_DIR,
+        "static_dir": STATIC_DIR,
+        "static_dir_exists": os.path.isdir(STATIC_DIR),
+        "checkin_exists": os.path.exists(os.path.join(STATIC_DIR, "checkin.html")),
+        "static_files": os.listdir(STATIC_DIR) if os.path.isdir(STATIC_DIR) else [],
+    }
+
+
+
+
+
+
 app = FastAPI(title="Training Attendance API (SQLite)")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
