@@ -637,13 +637,15 @@
       if (!mem) return;
       document.getElementById("memEditFirst").value = mem.first_name || "";
       document.getElementById("memEditLast").value = mem.last_name || "";
-      document.getElementById("memEditPhone").value = mem.phone || "";
+      document.getElementById("memEditPhone").value = formatPhone(mem.phone);
       document.getElementById("memEditAddress").value = mem.address || "";
       document.getElementById("memEditBelt").value = mem.belt_rank || "";
       document.getElementById("memEditPromo").value = formatDate(mem.promotion_start_date);
       document.getElementById("memEditType").value = mem.student_type || "";
       document.getElementById("memEditActive").value = String(mem.active ?? "");
-      const phoneLabel = mem.phone ? ` - ${formatPhone(mem.phone)}` : "";\n      const promoLabel = mem.promotion_start_date ? ` - ${formatDate(mem.promotion_start_date)}` : "";\n      memCurrent.textContent = `Current: ${mem.first_name || ""} ${mem.last_name || ""}${phoneLabel}${promoLabel}`;
+      const phoneLabel = mem.phone ? ` - ${formatPhone(mem.phone)}` : "";
+      const promoLabel = mem.promotion_start_date ? ` - ${formatDate(mem.promotion_start_date)}` : "";
+      memCurrent.textContent = `Current: ${mem.first_name || ""} ${mem.last_name || ""}${phoneLabel}${promoLabel}`;
     }
 
     function formatPhone(value) {
@@ -655,7 +657,28 @@
         return `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}`;
       }
       return value || "";
-    }\n\n    function formatDate(value) {\n      if (!value) return "";\n      const parts = String(value).split("T")[0].split("-");\n      if (parts.length === 3) {\n        return `${parts[1]}/${parts[2]}/${parts[0]}`;\n      }\n      return value;\n    }\n\n    function normalizeDate(value) {\n      const v = String(value || "").trim();\n      if (!v) return "";\n      const m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);\n      if (m) {\n        const mm = m[1].padStart(2, "0");\n        const dd = m[2].padStart(2, "0");\n        return `${m[3]}-${mm}-${dd}`;\n      }\n      return v;\n    }
+    }
+
+    function formatDate(value) {
+      if (!value) return "";
+      const parts = String(value).split("T")[0].split("-");
+      if (parts.length === 3) {
+        return `${parts[1]}/${parts[2]}/${parts[0]}`;
+      }
+      return value;
+    }
+
+    function normalizeDate(value) {
+      const v = String(value || "").trim();
+      if (!v) return "";
+      const m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (m) {
+        const mm = m[1].padStart(2, "0");
+        const dd = m[2].padStart(2, "0");
+        return `${m[3]}-${mm}-${dd}`;
+      }
+      return v;
+    }
 
     facSelect.addEventListener("change", fillFacilityFields);
     memSelect.addEventListener("change", fillMemberFields);
