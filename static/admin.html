@@ -270,6 +270,8 @@
     const memberDetail = document.getElementById("memberDetail");
     const facSelect = document.getElementById("facSelect");
     const memSelect = document.getElementById("memSelect");
+    const memPhoneInput = document.getElementById("memPhone");
+    const memEditPhoneInput = document.getElementById("memEditPhone");
     const facCurrent = document.getElementById("facCurrent");
     const memCurrent = document.getElementById("memCurrent");
     let facilityCache = [];
@@ -660,6 +662,19 @@
       return value || "";
     }
 
+    function formatPhonePartial(value) {
+      const digits = String(value || "").replace(/\D+/g, "");
+      if (digits.length <= 3) return digits;
+      if (digits.length <= 6) return `${digits.slice(0,3)}-${digits.slice(3)}`;
+      if (digits.length <= 10) {
+        const area = digits.slice(0,3);
+        const mid = digits.slice(3,6);
+        const tail = digits.slice(6);
+        return `(${area}) ${mid}-${tail}`;
+      }
+      return `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6,10)}`;
+    }
+
     function formatDate(value) {
       if (!value) return "";
       const parts = String(value).split("T")[0].split("-");
@@ -683,6 +698,12 @@
 
     facSelect.addEventListener("change", fillFacilityFields);
     memSelect.addEventListener("change", fillMemberFields);
+    memPhoneInput.addEventListener("input", () => {
+      memPhoneInput.value = formatPhonePartial(memPhoneInput.value);
+    });
+    memEditPhoneInput.addEventListener("input", () => {
+      memEditPhoneInput.value = formatPhonePartial(memEditPhoneInput.value);
+    });
 
     async function loadQrLinks() {
       const container = document.getElementById("qrLinks");
