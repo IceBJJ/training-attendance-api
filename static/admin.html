@@ -268,6 +268,8 @@
     const memberDetail = document.getElementById("memberDetail");
     const facSelect = document.getElementById("facSelect");
     const memSelect = document.getElementById("memSelect");
+    let facilityCache = [];
+    let memberCache = [];
 
     function setMsg(el, text, ok=null) {
       el.textContent = text;
@@ -552,6 +554,7 @@
         return;
       }
       const data = await res.json();
+      facilityCache = data;
       if (!data.length) {
         const opt = document.createElement("option");
         opt.value = "";
@@ -565,6 +568,7 @@
         opt.textContent = `${f.name} (${f.id})`;
         facSelect.appendChild(opt);
       });
+      fillFacilityFields();
     }
 
     // Populate admin member dropdown.
@@ -577,9 +581,11 @@
         return;
       }
       const data = await res.json();
+      memberCache = data;
       data.forEach((m) => {
         addMemberOption(memSelect, m.id, `${m.first_name} ${m.last_name}`);
       });
+      fillMemberFields();
     }
 
     // Populate reports dropdown.
@@ -610,6 +616,32 @@
       opt.textContent = label;
       select.appendChild(opt);
     }
+
+    function fillFacilityFields() {
+      const id = facSelect.value;
+      const fac = facilityCache.find((f) => f.id === id);
+      if (!fac) return;
+      document.getElementById("facEditName").value = fac.name || "";
+      document.getElementById("facEditAddress").value = fac.address || "";
+      document.getElementById("facEditActive").value = String(fac.active ?? "");
+    }
+
+    function fillMemberFields() {
+      const id = memSelect.value;
+      const mem = memberCache.find((m) => m.id === id);
+      if (!mem) return;
+      document.getElementById("memEditFirst").value = mem.first_name || "";
+      document.getElementById("memEditLast").value = mem.last_name || "";
+      document.getElementById("memEditPhone").value = mem.phone || "";
+      document.getElementById("memEditAddress").value = mem.address || "";
+      document.getElementById("memEditBelt").value = mem.belt_rank || "";
+      document.getElementById("memEditPromo").value = mem.promotion_start_date || "";
+      document.getElementById("memEditType").value = mem.student_type || "";
+      document.getElementById("memEditActive").value = String(mem.active ?? "");
+    }
+
+    facSelect.addEventListener("change", fillFacilityFields);
+    memSelect.addEventListener("change", fillMemberFields);
 
     async function loadQrLinks() {
       const container = document.getElementById("qrLinks");
