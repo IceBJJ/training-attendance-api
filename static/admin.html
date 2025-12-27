@@ -754,7 +754,6 @@
     function bindAddressInput(input) {
       if (!input) return;
       const format = () => { input.value = formatAddressPartial(input.value); };
-      input.addEventListener("input", format);
       input.addEventListener("change", format);
       input.addEventListener("blur", format);
       format();
