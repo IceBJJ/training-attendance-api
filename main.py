@@ -45,6 +45,20 @@ def home_page():
         raise HTTPException(status_code=404, detail="home.html not found in ./static")
     return FileResponse(path)
 
+@app.get("/reports")
+def reports_page():
+    path = os.path.join(STATIC_DIR, "reports.html")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="reports.html not found in ./static")
+    return FileResponse(path)
+
+@app.get("/qr-list")
+def qr_list_page():
+    path = os.path.join(STATIC_DIR, "qr_list.html")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="qr_list.html not found in ./static")
+    return FileResponse(path)
+
 @app.get("/facilities/view")
 def facilities_view():
     path = os.path.join(STATIC_DIR, "facilities.html")
@@ -655,9 +669,7 @@ def list_attendance(limit: int = 100):
         return [dict(r) for r in rows]
 
 # ---------- Reports (Admin) ----------
-@app.get("/admin/reports/members-summary")
-def report_members_summary(request: Request):
-    require_admin(request)
+def report_members_summary_data():
     now = datetime.utcnow()
 
     with get_conn() as conn:
@@ -703,42 +715,7 @@ def report_members_summary(request: Request):
 
     return results
 
-@app.get("/admin/reports/members-summary.csv")
-def report_members_summary_csv(request: Request):
-    require_admin(request)
-    rows = report_members_summary(request)
-
-    header = [
-        "id",
-        "first_name",
-        "last_name",
-        "belt_rank",
-        "student_type",
-        "promotion_start_date",
-        "months_since_promotion",
-        "sessions_since_promotion",
-        "active",
-    ]
-    lines = [",".join(header)]
-    for r in rows:
-        line = [
-            str(r.get("id") or ""),
-            str(r.get("first_name") or ""),
-            str(r.get("last_name") or ""),
-            str(r.get("belt_rank") or ""),
-            str(r.get("student_type") or ""),
-            str(r.get("promotion_start_date") or ""),
-            str(r.get("months_since_promotion") or ""),
-            str(r.get("sessions_since_promotion") or ""),
-            str(r.get("active") or ""),
-        ]
-        lines.append(",".join(line))
-
-    return Response("\n".join(lines), media_type="text/csv")
-
-@app.get("/admin/reports/member/{member_id}")
-def report_member_detail(member_id: str, request: Request):
-    require_admin(request)
+def report_member_detail_data(member_id: str):
     now = datetime.utcnow()
 
     with get_conn() as conn:
@@ -793,10 +770,100 @@ def report_member_detail(member_id: str, request: Request):
         "sessions_by_month": monthly,
     }
 
+@app.get("/reports/members-summary")
+def report_members_summary_public():
+    return report_members_summary_data()
+
+@app.get("/admin/reports/members-summary")
+def report_members_summary(request: Request):
+    require_admin(request)
+    return report_members_summary_data()
+
+@app.get("/admin/reports/members-summary.csv")
+def report_members_summary_csv(request: Request):
+    require_admin(request)
+    rows = report_members_summary_data()
+
+    header = [
+        "id",
+        "first_name",
+        "last_name",
+        "belt_rank",
+        "student_type",
+        "promotion_start_date",
+        "months_since_promotion",
+        "sessions_since_promotion",
+        "active",
+    ]
+    lines = [",".join(header)]
+    for r in rows:
+        line = [
+            str(r.get("id") or ""),
+            str(r.get("first_name") or ""),
+            str(r.get("last_name") or ""),
+            str(r.get("belt_rank") or ""),
+            str(r.get("student_type") or ""),
+            str(r.get("promotion_start_date") or ""),
+            str(r.get("months_since_promotion") or ""),
+            str(r.get("sessions_since_promotion") or ""),
+            str(r.get("active") or ""),
+        ]
+        lines.append(",".join(line))
+
+    return Response("\n".join(lines), media_type="text/csv")
+
+@app.get("/reports/members-summary.csv")
+def report_members_summary_csv_public():
+    rows = report_members_summary_data()
+    header = [
+        "id",
+        "first_name",
+        "last_name",
+        "belt_rank",
+        "student_type",
+        "promotion_start_date",
+        "months_since_promotion",
+        "sessions_since_promotion",
+        "active",
+    ]
+    lines = [",".join(header)]
+    for r in rows:
+        line = [
+            str(r.get("id") or ""),
+            str(r.get("first_name") or ""),
+            str(r.get("last_name") or ""),
+            str(r.get("belt_rank") or ""),
+            str(r.get("student_type") or ""),
+            str(r.get("promotion_start_date") or ""),
+            str(r.get("months_since_promotion") or ""),
+            str(r.get("sessions_since_promotion") or ""),
+            str(r.get("active") or ""),
+        ]
+        lines.append(",".join(line))
+
+    return Response("\n".join(lines), media_type="text/csv")
+
+@app.get("/admin/reports/member/{member_id}")
+def report_member_detail(member_id: str, request: Request):
+    require_admin(request)
+    return report_member_detail_data(member_id)
+
+@app.get("/reports/member/{member_id}")
+def report_member_detail_public(member_id: str):
+    return report_member_detail_data(member_id)
+
 @app.get("/admin/reports/member/{member_id}.csv")
 def report_member_detail_csv(member_id: str, request: Request):
     require_admin(request)
-    data = report_member_detail(member_id, request)
+    data = report_member_detail_data(member_id)
+    lines = ["month,sessions"]
+    for row in data["sessions_by_month"]:
+        lines.append(f"{row['month']},{row['sessions']}")
+    return Response("\n".join(lines), media_type="text/csv")
+
+@app.get("/reports/member/{member_id}.csv")
+def report_member_detail_csv_public(member_id: str):
+    data = report_member_detail_data(member_id)
     lines = ["month,sessions"]
     for row in data["sessions_by_month"]:
         lines.append(f"{row['month']},{row['sessions']}")

@@ -1,0 +1,194 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Reports</title>
+  <style>
+    :root {
+      --bg: #0f1411;
+      --panel: #161c19;
+      --text: #e9f3ed;
+      --muted: #9fb0a6;
+      --border: #2b3a32;
+      --accent: #79d498;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Space Grotesk", "Segoe UI", sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      padding: 24px;
+    }
+    .wrap { max-width: 960px; margin: 0 auto; }
+    h1 { margin: 0 0 8px; }
+    p { color: var(--muted); margin: 0 0 16px; }
+    button {
+      background: linear-gradient(120deg, var(--accent), #58b87b);
+      color: #0d140f;
+      border: none;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-right: 8px;
+    }
+    .msg {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #111815;
+      white-space: pre-wrap;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-top: 12px;
+    }
+    th, td {
+      padding: 10px 8px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      font-size: 14px;
+    }
+    th { color: var(--muted); font-weight: 600; }
+    select {
+      width: 100%;
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #1d2622;
+      color: var(--text);
+    }
+    a { color: var(--accent); text-decoration: none; }
+  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div style="margin-bottom: 12px;">
+    <a href="/home" style="color:#79d498;text-decoration:none;">← Home</a>
+  </div>
+  <div class="wrap">
+    <h1>Reports</h1>
+    <p>Read-only reports (no password required).</p>
+
+    <button onclick="loadSummary()">Load Member Summary</button>
+    <button onclick="exportSummary()">Export Summary CSV</button>
+    <div id="msg" class="msg"></div>
+    <div id="summary"></div>
+
+    <label>Member detail</label>
+    <select id="memberSelect"></select>
+    <button onclick="loadDetail()">Load Member Detail</button>
+    <button onclick="exportDetail()">Export Member CSV</button>
+    <div id="detail"></div>
+  </div>
+
+  <script>
+    const msg = document.getElementById("msg");
+    const summary = document.getElementById("summary");
+    const memberSelect = document.getElementById("memberSelect");
+    const detail = document.getElementById("detail");
+
+    function setMsg(text) {
+      msg.textContent = text;
+    }
+
+    async function loadSummary() {
+      try {
+        const res = await fetch("/reports/members-summary");
+        const data = await res.json();
+        if (!res.ok) throw new Error("Load failed");
+        setMsg(`Loaded ${data.length} members.`);
+        renderSummary(data);
+      } catch (e) {
+        setMsg(String(e));
+      }
+    }
+
+    function renderSummary(rows) {
+      summary.innerHTML = "";
+      memberSelect.innerHTML = "";
+      const table = document.createElement("table");
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Belt</th>
+            <th>Sessions Since Promotion</th>
+            <th>Months Since Promotion</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      `;
+      const tbody = table.querySelector("tbody");
+      rows.forEach((r) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${r.last_name}, ${r.first_name}</td>
+          <td>${r.belt_rank || ""}</td>
+          <td>${r.sessions_since_promotion}</td>
+          <td>${r.months_since_promotion ?? ""}</td>
+        `;
+        tbody.appendChild(tr);
+
+        const opt = document.createElement("option");
+        opt.value = r.id;
+        opt.textContent = `${r.first_name} ${r.last_name}`;
+        memberSelect.appendChild(opt);
+      });
+      summary.appendChild(table);
+    }
+
+    async function loadDetail() {
+      const id = memberSelect.value;
+      if (!id) return;
+      try {
+        const res = await fetch(`/reports/member/${encodeURIComponent(id)}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error("Load failed");
+        renderDetail(data);
+      } catch (e) {
+        detail.innerHTML = `<div class="msg">${String(e)}</div>`;
+      }
+    }
+
+    function renderDetail(data) {
+      const monthly = data.sessions_by_month || [];
+      let rows = "";
+      monthly.forEach((m) => {
+        rows += `<tr><td>${m.month}</td><td>${m.sessions}</td></tr>`;
+      });
+      detail.innerHTML = `
+        <div class="msg">
+          Total sessions since promotion: ${data.sessions_since_promotion}\n
+          Months since promotion: ${data.months_since_promotion ?? "N/A"}
+        </div>
+        <table>
+          <thead><tr><th>Month</th><th>Sessions</th></tr></thead>
+          <tbody>${rows || "<tr><td colspan='2'>No sessions</td></tr>"}</tbody>
+        </table>
+      `;
+    }
+
+    function exportSummary() {
+      window.open("/reports/members-summary.csv", "_blank");
+    }
+
+    function exportDetail() {
+      const id = memberSelect.value;
+      if (!id) return;
+      window.open(`/reports/member/${encodeURIComponent(id)}.csv`, "_blank");
+    }
+  </script>
+</body>
+</html>
