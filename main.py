@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 import re
 import uuid
+from urllib.parse import urlparse
 
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -28,6 +29,20 @@ def debug_static():
         "static_dir_exists": os.path.isdir(STATIC_DIR),
         "checkin_exists": os.path.exists(os.path.join(STATIC_DIR, "checkin.html")),
         "static_files": os.listdir(STATIC_DIR) if os.path.isdir(STATIC_DIR) else [],
+    }
+
+@app.get("/debug/db")
+def debug_db():
+    db_url = os.getenv("DATABASE_URL")
+    if not db_url:
+        return {"database_url_set": False}
+    parsed = urlparse(db_url)
+    return {
+        "database_url_set": True,
+        "scheme": parsed.scheme,
+        "host": parsed.hostname,
+        "port": parsed.port,
+        "db_name": (parsed.path or "").lstrip("/"),
     }
 
 @app.get("/")
