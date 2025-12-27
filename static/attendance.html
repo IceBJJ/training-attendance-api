@@ -38,14 +38,25 @@
       font-size: 14px;
     }
     th { color: var(--muted); font-weight: 600; }
+    .home-link { margin-bottom: 12px; }
+    .home-link a {
+      display: inline-block;
+      padding: 8px 12px;
+      border-radius: 10px;
+      background: var(--panel);
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 600;
+      border: 1px solid var(--border);
+    }
   </style>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&display=swap" rel="stylesheet">
 </head>
 <body>
-  <div style="margin-bottom: 12px;">
-    <a href="/home" style="color:#79d498;text-decoration:none;">← Home</a>
+  <div class="home-link">
+    <a href="/home">← Home</a>
   </div>
   <div class="wrap">
     <h1>Latest Attendance</h1>

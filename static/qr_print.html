@@ -49,6 +49,17 @@
       text-decoration: none;
       font-weight: 600;
     }
+    .home-link { margin-bottom: 12px; }
+    .home-link a {
+      display: inline-block;
+      padding: 8px 12px;
+      border-radius: 10px;
+      background: #fff;
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+      border: 2px solid var(--accent);
+    }
     @media print {
       body { background: #fff; padding: 0; }
       .btn { display: none; }
@@ -61,8 +72,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
-  <div style="margin-bottom: 12px;">
-    <a href="/home" style="color:#0f5b3a;text-decoration:none;">← Home</a>
+  <div class="home-link">
+    <a href="/home">← Home</a>
   </div>
   <div class="card">
     <h1 id="facilityName">Facility</h1>
