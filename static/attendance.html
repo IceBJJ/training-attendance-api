@@ -1,0 +1,83 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Attendance</title>
+  <style>
+    :root {
+      --bg: #0f1411;
+      --panel: #161c19;
+      --text: #e9f3ed;
+      --muted: #9fb0a6;
+      --border: #2b3a32;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Space Grotesk", "Segoe UI", sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      padding: 24px;
+    }
+    .wrap { max-width: 960px; margin: 0 auto; }
+    h1 { margin: 0 0 8px; }
+    p { color: var(--muted); margin: 0 0 16px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    th, td {
+      padding: 10px 8px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      font-size: 14px;
+    }
+    th { color: var(--muted); font-weight: 600; }
+  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="wrap">
+    <h1>Latest Attendance</h1>
+    <p>Most recent check-ins.</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>User ID</th>
+          <th>Facility</th>
+          <th>Location</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+
+  <script>
+    async function load() {
+      const res = await fetch("/attendance");
+      const data = await res.json();
+      const body = document.getElementById("rows");
+      body.innerHTML = "";
+      data.forEach((row) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${row.check_in_time}</td>
+          <td>${row.user_id}</td>
+          <td>${row.facility_id}</td>
+          <td>${row.location_id}</td>
+        `;
+        body.appendChild(tr);
+      });
+    }
+    load();
+  </script>
+</body>
+</html>

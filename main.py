@@ -45,6 +45,27 @@ def home_page():
         raise HTTPException(status_code=404, detail="home.html not found in ./static")
     return FileResponse(path)
 
+@app.get("/facilities/view")
+def facilities_view():
+    path = os.path.join(STATIC_DIR, "facilities.html")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="facilities.html not found in ./static")
+    return FileResponse(path)
+
+@app.get("/locations/view")
+def locations_view():
+    path = os.path.join(STATIC_DIR, "locations.html")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="locations.html not found in ./static")
+    return FileResponse(path)
+
+@app.get("/attendance/view")
+def attendance_view():
+    path = os.path.join(STATIC_DIR, "attendance.html")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="attendance.html not found in ./static")
+    return FileResponse(path)
+
 @app.get("/qr/{facility_id}")
 def qr_print_page(facility_id: str):
     path = os.path.join(STATIC_DIR, "qr_print.html")
