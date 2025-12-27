@@ -12,16 +12,6 @@ import os
 
 from db import init_db, get_conn
 
-@app.get("/debug/static")
-def debug_static():
-    return {
-        "static_dir": STATIC_DIR,
-        "static_dir_exists": os.path.isdir(STATIC_DIR),
-        "checkin_exists": os.path.exists(os.path.join(STATIC_DIR, "checkin.html")),
-        "static_files": os.listdir(STATIC_DIR) if os.path.isdir(STATIC_DIR) else [],
-    }
-
-
 app = FastAPI(title="Training Attendance API (SQLite)")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -30,6 +20,15 @@ STATIC_DIR = os.path.join(BASE_DIR, "static")
 # Serve static assets at /static (does NOT override API routes like /scan)
 if os.path.isdir(STATIC_DIR):
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+@app.get("/debug/static")
+def debug_static():
+    return {
+        "static_dir": STATIC_DIR,
+        "static_dir_exists": os.path.isdir(STATIC_DIR),
+        "checkin_exists": os.path.exists(os.path.join(STATIC_DIR, "checkin.html")),
+        "static_files": os.listdir(STATIC_DIR) if os.path.isdir(STATIC_DIR) else [],
+    }
 
 @app.get("/")
 def home():
