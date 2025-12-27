@@ -698,12 +698,18 @@
 
     facSelect.addEventListener("change", fillFacilityFields);
     memSelect.addEventListener("change", fillMemberFields);
-    memPhoneInput.addEventListener("input", () => {
-      memPhoneInput.value = formatPhonePartial(memPhoneInput.value);
-    });
-    memEditPhoneInput.addEventListener("input", () => {
-      memEditPhoneInput.value = formatPhonePartial(memEditPhoneInput.value);
-    });
+
+    function bindPhoneInput(input) {
+      if (!input) return;
+      const format = () => { input.value = formatPhonePartial(input.value); };
+      input.addEventListener("input", format);
+      input.addEventListener("change", format);
+      input.addEventListener("blur", format);
+      format();
+    }
+
+    bindPhoneInput(memPhoneInput);
+    bindPhoneInput(memEditPhoneInput);
 
     async function loadQrLinks() {
       const container = document.getElementById("qrLinks");
