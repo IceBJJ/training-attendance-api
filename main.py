@@ -5,9 +5,36 @@ from typing import Optional, List
 import re
 import uuid
 
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+import os
+
+
 from db import init_db, get_conn
 
 app = FastAPI(title="Training Attendance API (SQLite)")
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+
+# Serve static assets at /static (does NOT override API routes like /scan)
+if os.path.isdir(STATIC_DIR):
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+@app.get("/")
+def home():
+    path = os.path.join(STATIC_DIR, "checkin.html")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="checkin.html not found in ./static")
+    return FileResponse(path)
+
+@app.get("/checkin.html")
+def checkin_page():
+    path = os.path.join(STATIC_DIR, "checkin.html")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="checkin.html not found in ./static")
+    return FileResponse(path)
+
 
 # --- rules ---
 IGNORE_MINUTES = 15
