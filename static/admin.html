@@ -643,7 +643,19 @@
       document.getElementById("memEditPromo").value = mem.promotion_start_date || "";
       document.getElementById("memEditType").value = mem.student_type || "";
       document.getElementById("memEditActive").value = String(mem.active ?? "");
-      memCurrent.textContent = `Current: ${mem.first_name || ""} ${mem.last_name || ""}`;
+      const phoneLabel = mem.phone ? ` • ${formatPhone(mem.phone)}` : "";
+      memCurrent.textContent = `Current: ${mem.first_name || ""} ${mem.last_name || ""}${phoneLabel}`;
+    }
+
+    function formatPhone(value) {
+      const digits = String(value || "").replace(/\D+/g, "");
+      if (digits.length === 7) {
+        return `${digits.slice(0,3)}-${digits.slice(3)}`;
+      }
+      if (digits.length === 10) {
+        return `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}`;
+      }
+      return value || "";
     }
 
     facSelect.addEventListener("change", fillFacilityFields);
