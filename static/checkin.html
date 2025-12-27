@@ -106,6 +106,22 @@
       return digits.length > 10 ? digits.slice(-10) : digits;
     }
 
+    function formatPhone(value) {
+      const digits = normalizePhone(value);
+      if (digits.length === 7) {
+        return `${digits.slice(0,3)}-${digits.slice(3)}`;
+      }
+      if (digits.length === 10) {
+        return `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}`;
+      }
+      return value || "";
+    }
+
+    phoneEl.addEventListener("input", () => {
+      const formatted = formatPhone(phoneEl.value);
+      phoneEl.value = formatted;
+    });
+
     // Save identity locally for quick re-use.
     async function saveIdentity() {
       const id = getIdentity();
