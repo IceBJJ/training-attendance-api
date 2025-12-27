@@ -19,11 +19,13 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 
 # Serve static assets at /static (does NOT override API routes like /scan)
+# Serve static assets from /static.
 if os.path.isdir(STATIC_DIR):
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 @app.get("/debug/static")
 def debug_static():
+    # Quick check to confirm static assets are available.
     return {
         "static_dir": STATIC_DIR,
         "static_dir_exists": os.path.isdir(STATIC_DIR),
@@ -106,13 +108,17 @@ def checkin_page():
 IGNORE_MINUTES = 15
 FACILITY_MINUTES = 30
 
+# ---------- helpers ----------
 def utcnow_iso() -> str:
+    # UTC timestamp stored as ISO 8601 string.
     return datetime.utcnow().isoformat()
 
 def normalize_name(s: str) -> str:
+    # Trim input to avoid whitespace mismatches.
     return (s or "").strip()
 
 def normalize_phone(s: Optional[str]) -> Optional[str]:
+    # Keep only digits; use last 10 for US numbers.
     if not s:
         return None
     digits = re.sub(r"\D+", "", s)
@@ -137,6 +143,7 @@ def normalize_qr_value(s: str) -> str:
     return raw
 
 def slugify(s: str) -> str:
+    # Build safe IDs from names (letters/numbers/underscores).
     value = (s or "").strip().upper()
     value = re.sub(r"[^A-Z0-9]+", "_", value)
     value = re.sub(r"_+", "_", value).strip("_")
@@ -155,6 +162,7 @@ def default_qr_value(facility_id: str) -> str:
     return f"QR_{facility_id}"
 
 def parse_promotion_date(value: Optional[str]) -> Optional[datetime]:
+    # Accept either YYYY-MM-DD or full ISO datetime.
     if not value:
         return None
     v = value.strip()
@@ -167,12 +175,14 @@ def parse_promotion_date(value: Optional[str]) -> Optional[datetime]:
             return None
 
 def months_since(start: datetime, end: datetime) -> int:
+    # Count months elapsed inclusive of the current month.
     months = (end.year - start.year) * 12 + (end.month - start.month)
     if end.day >= start.day:
         months += 1
     return max(0, months)
 
 def require_admin(request: Request) -> None:
+    # Simple header-based guard for admin-only endpoints.
     expected = os.getenv("ADMIN_PASSWORD")
     if not expected:
         raise HTTPException(status_code=500, detail="Admin password not configured")
@@ -204,6 +214,7 @@ def find_member_by_name(conn, first_name: str, last_name: str, phone: Optional[s
 
 @app.on_event("startup")
 def startup():
+    # Ensure DB schema exists on startup.
     init_db()
 
 # ---------- Models ----------
