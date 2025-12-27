@@ -22,20 +22,26 @@ LOCATIONS = [
 def seed():
     init_db()
     with get_conn() as conn:
-        for f in FACILITIES:
-            conn.execute(
-                "INSERT OR IGNORE INTO facilities (id, name, address, active) VALUES (?, ?, ?, ?)",
-                f
-            )
-        for l in LOCATIONS:
-            conn.execute(
-                """
+        if conn.dialect == "postgres":
+            fac_sql = "INSERT INTO facilities (id, name, address, active) VALUES (?, ?, ?, ?) ON CONFLICT (id) DO NOTHING"
+            loc_sql = """
+                INSERT INTO locations
+                (id, facility_id, name, description, qr_value)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT (id) DO NOTHING
+            """
+        else:
+            fac_sql = "INSERT OR IGNORE INTO facilities (id, name, address, active) VALUES (?, ?, ?, ?)"
+            loc_sql = """
                 INSERT OR IGNORE INTO locations
                 (id, facility_id, name, description, qr_value)
                 VALUES (?, ?, ?, ?, ?)
-                """,
-                l
-            )
+            """
+
+        for f in FACILITIES:
+            conn.execute(fac_sql, f)
+        for l in LOCATIONS:
+            conn.execute(loc_sql, l)
         conn.commit()
 
     print("Seed complete.")
