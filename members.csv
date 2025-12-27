@@ -1,1 +1,5 @@
-﻿first_name,last_name,phone,address,belt_rank,promotion_start_date,student_type,active
+first_name,last_name,phone,address,belt_rank,promotion_start_date,student_type,active
+Tyler,Beck;ey,1111111111,123 Not Here,Black,2019-01-01,adult,1
+Amy,Beckey,3333333333,123 Not Here,Brown,2023-11-01,adult,1
+Ben,Miller,2222222222,123 Some Place,Brown,2023-01-01,adult,1
+Richard,Toeppe,4197210440,821 Fishlock Ave ,Black,2025-01-01,adult,1
