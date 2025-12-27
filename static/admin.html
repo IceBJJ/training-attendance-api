@@ -296,6 +296,7 @@
       const pass = document.getElementById("adminPass").value.trim();
       if (!pass) return setMsg(authMsg, "Enter a password.", false);
       sessionStorage.setItem("admin_password", pass);
+      setMsg(authMsg, "Checking password...", null);
       try {
         const res = await fetch("/admin/ping", { headers: authHeaders() });
         if (!res.ok) {
