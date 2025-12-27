@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 import re
 import uuid
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -77,6 +77,21 @@ def normalize_phone(s: Optional[str]) -> Optional[str]:
     if len(digits) > 10:
         digits = digits[-10:]
     return digits if digits else None
+
+def normalize_qr_value(s: str) -> str:
+    raw = (s or "").strip().strip('"').strip("'")
+    if not raw:
+        return raw
+    if raw.lower().startswith(("http://", "https://")):
+        parsed = urlparse(raw)
+        params = parse_qs(parsed.query)
+        for key in ("qr", "code", "value"):
+            if key in params and params[key]:
+                return params[key][0].strip()
+        path = parsed.path.strip("/")
+        if path:
+            return path.split("/")[-1]
+    return raw
 
 def find_member_by_name(conn, first_name: str, last_name: str, phone: Optional[str]):
     rows = conn.execute(
@@ -236,10 +251,17 @@ def scan_qr(payload: ScanRequest):
         member_id = member["id"]
 
         # 2) Find location from QR
+        qr_raw = payload.qr_value or ""
+        qr_norm = normalize_qr_value(qr_raw)
         loc = conn.execute(
             "SELECT id, facility_id FROM locations WHERE qr_value = ?",
-            (payload.qr_value,),
+            (qr_raw,),
         ).fetchone()
+        if not loc and qr_norm and qr_norm != qr_raw:
+            loc = conn.execute(
+                "SELECT id, facility_id FROM locations WHERE qr_value = ?",
+                (qr_norm,),
+            ).fetchone()
         if not loc:
             raise HTTPException(status_code=400, detail="QR code not recognized")
 
