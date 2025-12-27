@@ -1,0 +1,148 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>IceBJJ Hub</title>
+  <style>
+    :root {
+      --bg: #0e1210;
+      --panel: #151b18;
+      --panel-2: #1d2622;
+      --text: #e9f3ed;
+      --muted: #9eb0a4;
+      --accent: #79d498;
+      --accent-2: #d4a15d;
+      --border: #2b3a32;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Space Grotesk", "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(800px 500px at 10% 10%, rgba(121, 212, 152, 0.14), transparent),
+        radial-gradient(800px 500px at 90% 10%, rgba(212, 161, 93, 0.12), transparent),
+        var(--bg);
+      padding: 32px 20px 48px;
+    }
+    .wrap {
+      max-width: 980px;
+      margin: 0 auto;
+    }
+    h1 {
+      font-size: 36px;
+      margin: 0 0 6px;
+      letter-spacing: 0.5px;
+    }
+    p {
+      margin: 0 0 24px;
+      color: var(--muted);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      min-height: 160px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+    .card h2 {
+      margin: 0 0 8px;
+      font-size: 20px;
+    }
+    .card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.4;
+    }
+    .btn {
+      margin-top: 18px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: none;
+      background: linear-gradient(120deg, var(--accent), #58b87b);
+      color: #0e1210;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .btn.secondary {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 8px;
+    }
+    .list a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    @media (max-width: 600px) {
+      h1 { font-size: 28px; }
+    }
+  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="wrap">
+    <h1>IceBJJ Hub</h1>
+    <p>Quick access to check-in, admin tools, and QR printouts.</p>
+
+    <div class="grid">
+      <div class="card">
+        <div>
+          <h2>Check-In</h2>
+          <p>Fast QR scan and attendance logging for members.</p>
+        </div>
+        <a class="btn" href="/checkin.html">Open Check-In</a>
+      </div>
+
+      <div class="card">
+        <div>
+          <h2>Admin</h2>
+          <p>Manage facilities and members, view reports, export CSV.</p>
+        </div>
+        <a class="btn" href="/admin">Open Admin</a>
+      </div>
+
+      <div class="card">
+        <div>
+          <h2>QR Print</h2>
+          <p>Print QR codes for each facility wall station.</p>
+        </div>
+        <a class="btn secondary" href="/admin">Open QR List</a>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top: 16px;">
+      <div>
+        <h2>Quick Links</h2>
+        <ul class="list">
+          <li><a href="/facilities">Facilities JSON</a></li>
+          <li><a href="/locations">Locations JSON</a></li>
+          <li><a href="/attendance">Latest Attendance</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

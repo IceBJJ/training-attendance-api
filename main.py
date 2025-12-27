@@ -38,6 +38,13 @@ def admin_page():
         raise HTTPException(status_code=404, detail="admin.html not found in ./static")
     return FileResponse(path)
 
+@app.get("/home")
+def home_page():
+    path = os.path.join(STATIC_DIR, "home.html")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="home.html not found in ./static")
+    return FileResponse(path)
+
 @app.get("/qr/{facility_id}")
 def qr_print_page(facility_id: str):
     path = os.path.join(STATIC_DIR, "qr_print.html")
