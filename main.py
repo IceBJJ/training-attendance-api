@@ -172,7 +172,22 @@ def parse_promotion_date(value: Optional[str]) -> Optional[datetime]:
         try:
             return datetime.strptime(v, "%Y-%m-%d")
         except ValueError:
-            return None
+            try:
+                return datetime.strptime(v, "%m/%d/%Y")
+            except ValueError:
+                return None
+
+def normalize_promotion_input(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    v = value.strip()
+    if not v:
+        return None
+    try:
+        dt = datetime.strptime(v, "%m/%d/%Y")
+        return dt.strftime("%Y-%m-%d")
+    except ValueError:
+        return v
 
 def months_since(start: datetime, end: datetime) -> int:
     # Count months elapsed inclusive of the current month.
@@ -468,7 +483,7 @@ def create_member_record(payload: MemberCreate) -> Dict[str, str]:
                 ph,
                 payload.address,
                 payload.belt_rank,
-                payload.promotion_start_date,
+                normalize_promotion_input(payload.promotion_start_date),
                 payload.student_type.strip(),
                 int(payload.active),
                 utcnow_iso(),
@@ -515,7 +530,7 @@ def admin_update_member(member_id: str, payload: MemberUpdate, request: Request)
         params.append(payload.belt_rank)
     if payload.promotion_start_date is not None:
         fields.append("promotion_start_date = ?")
-        params.append(payload.promotion_start_date)
+        params.append(normalize_promotion_input(payload.promotion_start_date))
     if payload.student_type is not None:
         fields.append("student_type = ?")
         params.append(payload.student_type.strip())

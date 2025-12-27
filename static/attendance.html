@@ -84,7 +84,7 @@
       data.forEach((row) => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td>${row.check_in_time}</td>
+          <td>${formatDateTime(row.check_in_time)}</td>
           <td>${row.user_id}</td>
           <td>${row.facility_id}</td>
           <td>${row.location_id}</td>
@@ -93,6 +93,16 @@
       });
     }
     load();
+
+    function formatDateTime(value) {
+      if (!value) return "";
+      const parts = String(value).split("T");
+      if (parts.length < 2) return value;
+      const dateParts = parts[0].split("-");
+      if (dateParts.length !== 3) return value;
+      const time = parts[1].slice(0, 5);
+      return `${dateParts[1]}/${dateParts[2]}/${dateParts[0]} ${time}`;
+    }
   </script>
 </body>
 </html>

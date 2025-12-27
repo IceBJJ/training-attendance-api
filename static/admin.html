@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html>
 <head>
   <meta charset="utf-8" />
@@ -119,7 +119,7 @@
 </head>
 <body>
   <div class="home-link">
-    <a href="/home">← Home</a>
+    <a href="/home"><- Home</a>
   </div>
   <h1>IceBJJ Admin <span class="tag">Maintenance</span></h1>
   <p>Manage facilities, members, and reports. Password is required for changes.</p>
@@ -194,7 +194,7 @@
       <label>Belt rank</label>
       <input id="memBelt" placeholder="Blue" />
       <label>Promotion start date</label>
-      <input id="memPromo" placeholder="YYYY-MM-DD" />
+      <input id="memPromo" placeholder="MM/DD/YYYY" />
       <label>Student type</label>
       <select id="memType">
         <option value="adult">Adult</option>
@@ -365,7 +365,7 @@
         phone: document.getElementById("memPhone").value.trim() || null,
         address: document.getElementById("memAddress").value.trim() || null,
         belt_rank: document.getElementById("memBelt").value.trim() || null,
-        promotion_start_date: document.getElementById("memPromo").value.trim() || null,
+        promotion_start_date: normalizeDate(document.getElementById("memPromo").value),
         student_type: document.getElementById("memType").value,
         active: Number(document.getElementById("memActive").value)
       };
@@ -420,7 +420,7 @@
       const phone = document.getElementById("memEditPhone").value.trim();
       const address = document.getElementById("memEditAddress").value.trim();
       const belt = document.getElementById("memEditBelt").value.trim();
-      const promo = document.getElementById("memEditPromo").value.trim();
+      const promo = normalizeDate(document.getElementById("memEditPromo").value);
       const studentType = document.getElementById("memEditType").value;
       const active = document.getElementById("memEditActive").value;
       if (first) payload.first_name = first;
@@ -628,7 +628,7 @@
       document.getElementById("facEditName").value = fac.name || "";
       document.getElementById("facEditAddress").value = fac.address || "";
       document.getElementById("facEditActive").value = String(fac.active ?? "");
-      facCurrent.textContent = `Current: ${fac.name || ""} ${fac.address ? "• " + fac.address : ""}`;
+      facCurrent.textContent = `Current: ${fac.name || ""}${fac.address ? " - " + fac.address : ""}`;
     }
 
     function fillMemberFields() {
@@ -640,11 +640,10 @@
       document.getElementById("memEditPhone").value = mem.phone || "";
       document.getElementById("memEditAddress").value = mem.address || "";
       document.getElementById("memEditBelt").value = mem.belt_rank || "";
-      document.getElementById("memEditPromo").value = mem.promotion_start_date || "";
+      document.getElementById("memEditPromo").value = formatDate(mem.promotion_start_date);
       document.getElementById("memEditType").value = mem.student_type || "";
       document.getElementById("memEditActive").value = String(mem.active ?? "");
-      const phoneLabel = mem.phone ? ` • ${formatPhone(mem.phone)}` : "";
-      memCurrent.textContent = `Current: ${mem.first_name || ""} ${mem.last_name || ""}${phoneLabel}`;
+      const phoneLabel = mem.phone ? ` - ${formatPhone(mem.phone)}` : "";\n      const promoLabel = mem.promotion_start_date ? ` - ${formatDate(mem.promotion_start_date)}` : "";\n      memCurrent.textContent = `Current: ${mem.first_name || ""} ${mem.last_name || ""}${phoneLabel}${promoLabel}`;
     }
 
     function formatPhone(value) {
@@ -656,7 +655,7 @@
         return `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}`;
       }
       return value || "";
-    }
+    }\n\n    function formatDate(value) {\n      if (!value) return "";\n      const parts = String(value).split("T")[0].split("-");\n      if (parts.length === 3) {\n        return `${parts[1]}/${parts[2]}/${parts[0]}`;\n      }\n      return value;\n    }\n\n    function normalizeDate(value) {\n      const v = String(value || "").trim();\n      if (!v) return "";\n      const m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);\n      if (m) {\n        const mm = m[1].padStart(2, "0");\n        const dd = m[2].padStart(2, "0");\n        return `${m[3]}-${mm}-${dd}`;\n      }\n      return v;\n    }
 
     facSelect.addEventListener("change", fillFacilityFields);
     memSelect.addEventListener("change", fillMemberFields);
@@ -703,3 +702,4 @@
   </script>
 </body>
 </html>
+
