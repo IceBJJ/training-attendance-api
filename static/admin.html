@@ -523,8 +523,20 @@
 
     async function loadFacilities() {
       facSelect.innerHTML = "";
-      const res = await fetch("/facilities");
+      const res = await fetch("/admin/facilities", { headers: authHeaders() });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setMsg(document.getElementById("facEditMsg"), data.detail || "Failed to load facilities.", false);
+        return;
+      }
       const data = await res.json();
+      if (!data.length) {
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "No facilities found";
+        facSelect.appendChild(opt);
+        return;
+      }
       data.forEach((f) => {
         const opt = document.createElement("option");
         opt.value = f.id;
@@ -536,7 +548,11 @@
     async function loadMembers() {
       memSelect.innerHTML = "";
       const res = await fetch("/admin/members", { headers: authHeaders() });
-      if (!res.ok) return;
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setMsg(document.getElementById("memEditMsg"), data.detail || "Failed to load members.", false);
+        return;
+      }
       const data = await res.json();
       data.forEach((m) => {
         const opt = document.createElement("option");

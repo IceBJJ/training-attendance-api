@@ -224,6 +224,15 @@ def list_facilities():
         ).fetchall()
         return [dict(r) for r in rows]
 
+@app.get("/admin/facilities")
+def admin_list_facilities(request: Request):
+    require_admin(request)
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT id, name, address, active FROM facilities ORDER BY id"
+        ).fetchall()
+        return [dict(r) for r in rows]
+
 @app.post("/admin/facilities")
 def create_facility(payload: FacilityCreate, request: Request):
     require_admin(request)
