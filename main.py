@@ -695,7 +695,7 @@ def list_attendance(limit: int = 100):
         return [dict(r) for r in rows]
 
 # ---------- Reports (Admin) ----------
-def report_members_summary_data():
+def report_members_summary_data(facility_id: Optional[str] = None):
     now = datetime.utcnow()
 
     with get_conn() as conn:
@@ -711,15 +711,25 @@ def report_members_summary_data():
         for m in members:
             start = parse_promotion_date(m["promotion_start_date"])
             if start:
+                params: List[object] = [m["id"], start.isoformat()]
+                where = "user_id = ? AND check_in_time >= ?"
+                if facility_id:
+                    where += " AND facility_id = ?"
+                    params.append(facility_id)
                 count_row = conn.execute(
-                    "SELECT COUNT(*) AS c FROM attendance WHERE user_id = ? AND check_in_time >= ?",
-                    (m["id"], start.isoformat()),
+                    f"SELECT COUNT(*) AS c FROM attendance WHERE {where}",
+                    tuple(params),
                 ).fetchone()
                 months_elapsed = months_since(start, now)
             else:
+                params = [m["id"]]
+                where = "user_id = ?"
+                if facility_id:
+                    where += " AND facility_id = ?"
+                    params.append(facility_id)
                 count_row = conn.execute(
-                    "SELECT COUNT(*) AS c FROM attendance WHERE user_id = ?",
-                    (m["id"],),
+                    f"SELECT COUNT(*) AS c FROM attendance WHERE {where}",
+                    tuple(params),
                 ).fetchone()
                 months_elapsed = None
 
@@ -741,7 +751,7 @@ def report_members_summary_data():
 
     return results
 
-def report_member_detail_data(member_id: str):
+def report_member_detail_data(member_id: str, facility_id: Optional[str] = None):
     now = datetime.utcnow()
 
     with get_conn() as conn:
@@ -759,25 +769,35 @@ def report_member_detail_data(member_id: str):
 
         start = parse_promotion_date(member["promotion_start_date"])
         if start:
+            params: List[object] = [member_id, start.isoformat()]
+            where = "user_id = ? AND check_in_time >= ?"
+            if facility_id:
+                where += " AND facility_id = ?"
+                params.append(facility_id)
             rows = conn.execute(
                 """
                 SELECT check_in_time
                 FROM attendance
-                WHERE user_id = ? AND check_in_time >= ?
+                WHERE {where}
                 ORDER BY check_in_time
-                """,
-                (member_id, start.isoformat()),
+                """.format(where=where),
+                tuple(params),
             ).fetchall()
             months_elapsed = months_since(start, now)
         else:
+            params = [member_id]
+            where = "user_id = ?"
+            if facility_id:
+                where += " AND facility_id = ?"
+                params.append(facility_id)
             rows = conn.execute(
                 """
                 SELECT check_in_time
                 FROM attendance
-                WHERE user_id = ?
+                WHERE {where}
                 ORDER BY check_in_time
-                """,
-                (member_id,),
+                """.format(where=where),
+                tuple(params),
             ).fetchall()
             months_elapsed = None
 
@@ -797,18 +817,18 @@ def report_member_detail_data(member_id: str):
     }
 
 @app.get("/reports/members-summary")
-def report_members_summary_public():
-    return report_members_summary_data()
+def report_members_summary_public(facility_id: Optional[str] = None):
+    return report_members_summary_data(facility_id=facility_id)
 
 @app.get("/admin/reports/members-summary")
-def report_members_summary(request: Request):
+def report_members_summary(request: Request, facility_id: Optional[str] = None):
     require_admin(request)
-    return report_members_summary_data()
+    return report_members_summary_data(facility_id=facility_id)
 
 @app.get("/admin/reports/members-summary.csv")
-def report_members_summary_csv(request: Request):
+def report_members_summary_csv(request: Request, facility_id: Optional[str] = None):
     require_admin(request)
-    rows = report_members_summary_data()
+    rows = report_members_summary_data(facility_id=facility_id)
 
     header = [
         "id",
@@ -839,8 +859,8 @@ def report_members_summary_csv(request: Request):
     return Response("\n".join(lines), media_type="text/csv")
 
 @app.get("/reports/members-summary.csv")
-def report_members_summary_csv_public():
-    rows = report_members_summary_data()
+def report_members_summary_csv_public(facility_id: Optional[str] = None):
+    rows = report_members_summary_data(facility_id=facility_id)
     header = [
         "id",
         "first_name",
@@ -870,26 +890,26 @@ def report_members_summary_csv_public():
     return Response("\n".join(lines), media_type="text/csv")
 
 @app.get("/admin/reports/member/{member_id}")
-def report_member_detail(member_id: str, request: Request):
+def report_member_detail(member_id: str, request: Request, facility_id: Optional[str] = None):
     require_admin(request)
-    return report_member_detail_data(member_id)
+    return report_member_detail_data(member_id, facility_id=facility_id)
 
 @app.get("/reports/member/{member_id}")
-def report_member_detail_public(member_id: str):
-    return report_member_detail_data(member_id)
+def report_member_detail_public(member_id: str, facility_id: Optional[str] = None):
+    return report_member_detail_data(member_id, facility_id=facility_id)
 
 @app.get("/admin/reports/member/{member_id}.csv")
-def report_member_detail_csv(member_id: str, request: Request):
+def report_member_detail_csv(member_id: str, request: Request, facility_id: Optional[str] = None):
     require_admin(request)
-    data = report_member_detail_data(member_id)
+    data = report_member_detail_data(member_id, facility_id=facility_id)
     lines = ["month,sessions"]
     for row in data["sessions_by_month"]:
         lines.append(f"{row['month']},{row['sessions']}")
     return Response("\n".join(lines), media_type="text/csv")
 
 @app.get("/reports/member/{member_id}.csv")
-def report_member_detail_csv_public(member_id: str):
-    data = report_member_detail_data(member_id)
+def report_member_detail_csv_public(member_id: str, facility_id: Optional[str] = None):
+    data = report_member_detail_data(member_id, facility_id=facility_id)
     lines = ["month,sessions"]
     for row in data["sessions_by_month"]:
         lines.append(f"{row['month']},{row['sessions']}")

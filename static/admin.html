@@ -244,6 +244,8 @@
 
     <div class="panel">
       <h2>Reports</h2>
+      <label>Facility</label>
+      <select id="reportFacilitySelect"></select>
       <button onclick="loadSummary()">Load Member Summary</button>
       <button class="secondary" onclick="exportSummary()">Export Summary CSV</button>
       <div id="reportMsg" class="msg"></div>
@@ -270,6 +272,7 @@
     const memberDetail = document.getElementById("memberDetail");
     const facSelect = document.getElementById("facSelect");
     const memSelect = document.getElementById("memSelect");
+    const reportFacilitySelect = document.getElementById("reportFacilitySelect");
     const memPhoneInput = document.getElementById("memPhone");
     const memEditPhoneInput = document.getElementById("memEditPhone");
     const facCurrent = document.getElementById("facCurrent");
@@ -450,10 +453,15 @@
       }
     }
 
+    function reportFacilityQuery() {
+      const val = reportFacilitySelect.value;
+      return val ? `?facility_id=${encodeURIComponent(val)}` : "";
+    }
+
     // Summary report (sessions and months since promotion).
     async function loadSummary() {
       try {
-        const res = await fetch("/admin/reports/members-summary", { headers: authHeaders() });
+        const res = await fetch(`/admin/reports/members-summary${reportFacilityQuery()}`, { headers: authHeaders() });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || "Load failed");
         setMsg(reportMsg, `Loaded ${data.length} members.`, true);
@@ -500,7 +508,7 @@
       const id = memberSelect.value;
       if (!id) return;
       try {
-        const res = await fetch(`/admin/reports/member/${encodeURIComponent(id)}`, { headers: authHeaders() });
+        const res = await fetch(`/admin/reports/member/${encodeURIComponent(id)}${reportFacilityQuery()}`, { headers: authHeaders() });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || "Load failed");
         renderMemberDetail(data);
@@ -529,7 +537,7 @@
 
     async function exportSummary() {
       try {
-        const res = await fetch("/admin/reports/members-summary.csv", { headers: authHeaders() });
+        const res = await fetch(`/admin/reports/members-summary.csv${reportFacilityQuery()}`, { headers: authHeaders() });
         if (!res.ok) throw new Error("Export failed");
         const blob = await res.blob();
         downloadBlob(blob, "members_summary.csv");
@@ -542,7 +550,7 @@
       const id = memberSelect.value;
       if (!id) return;
       try {
-        const res = await fetch(`/admin/reports/member/${encodeURIComponent(id)}.csv`, { headers: authHeaders() });
+        const res = await fetch(`/admin/reports/member/${encodeURIComponent(id)}.csv${reportFacilityQuery()}`, { headers: authHeaders() });
         if (!res.ok) throw new Error("Export failed");
         const blob = await res.blob();
         downloadBlob(blob, `member_${id}.csv`);
@@ -614,6 +622,23 @@
       }
       data.forEach((m) => {
         addMemberOption(memberSelect, m.id, `${m.first_name} ${m.last_name}`);
+      });
+    }
+
+    async function loadReportFacilities() {
+      reportFacilitySelect.innerHTML = "";
+      const res = await fetch("/admin/facilities", { headers: authHeaders() });
+      if (!res.ok) return;
+      const data = await res.json();
+      const all = document.createElement("option");
+      all.value = "";
+      all.textContent = "All facilities";
+      reportFacilitySelect.appendChild(all);
+      data.forEach((f) => {
+        const opt = document.createElement("option");
+        opt.value = f.id;
+        opt.textContent = f.name;
+        reportFacilitySelect.appendChild(opt);
       });
     }
 
@@ -726,6 +751,7 @@
 
     facSelect.addEventListener("change", fillFacilityFields);
     memSelect.addEventListener("change", fillMemberFields);
+    reportFacilitySelect.addEventListener("change", loadSummary);
 
     function bindPhoneInput(input) {
       if (!input) return;
@@ -738,6 +764,8 @@
 
     bindPhoneInput(memPhoneInput);
     bindPhoneInput(memEditPhoneInput);
+
+    loadReportFacilities();
 
 
     async function loadQrLinks() {

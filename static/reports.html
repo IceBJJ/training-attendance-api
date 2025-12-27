@@ -92,6 +92,9 @@
     <h1>Reports <span style="font-size:12px;opacity:0.6;">v1.0.1</span></h1>
     <p>Read-only reports (no password required).</p>
 
+    <label>Facility</label>
+    <select id="facilitySelect"></select>
+
     <!-- Summary actions -->
     <button onclick="loadSummary()">Load Member Summary</button>
     <button onclick="exportSummary()">Export Summary CSV</button>
@@ -110,15 +113,21 @@
     const summary = document.getElementById("summary");
     const memberSelect = document.getElementById("memberSelect");
     const detail = document.getElementById("detail");
+    const facilitySelect = document.getElementById("facilitySelect");
 
     function setMsg(text) {
       msg.textContent = text;
     }
 
     // Fetch and render the summary report.
+    function facilityQuery() {
+      const val = facilitySelect.value;
+      return val ? `?facility_id=${encodeURIComponent(val)}` : "";
+    }
+
     async function loadSummary() {
       try {
-        const res = await fetch("/reports/members-summary");
+        const res = await fetch(`/reports/members-summary${facilityQuery()}`);
         const data = await res.json();
         if (!res.ok) throw new Error("Load failed");
         setMsg(`Loaded ${data.length} members.`);
@@ -167,7 +176,7 @@
       const id = memberSelect.value;
       if (!id) return;
       try {
-        const res = await fetch(`/reports/member/${encodeURIComponent(id)}`);
+        const res = await fetch(`/reports/member/${encodeURIComponent(id)}${facilityQuery()}`);
         const data = await res.json();
         if (!res.ok) throw new Error("Load failed");
         renderDetail(data);
@@ -195,14 +204,32 @@
     }
 
     function exportSummary() {
-      window.open("/reports/members-summary.csv", "_blank");
+      window.open(`/reports/members-summary.csv${facilityQuery()}`, "_blank");
     }
 
     function exportDetail() {
       const id = memberSelect.value;
       if (!id) return;
-      window.open(`/reports/member/${encodeURIComponent(id)}.csv`, "_blank");
+      window.open(`/reports/member/${encodeURIComponent(id)}.csv${facilityQuery()}`, "_blank");
     }
+
+    async function loadFacilities() {
+      const res = await fetch("/facilities");
+      const data = await res.json();
+      facilitySelect.innerHTML = "";
+      const all = document.createElement("option");
+      all.value = "";
+      all.textContent = "All facilities";
+      facilitySelect.appendChild(all);
+      data.forEach((f) => {
+        const opt = document.createElement("option");
+        opt.value = f.id;
+        opt.textContent = f.name;
+        facilitySelect.appendChild(opt);
+      });
+    }
+
+    loadFacilities();
   </script>
 </body>
 </html>
