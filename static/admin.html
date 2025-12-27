@@ -142,6 +142,24 @@
     </div>
 
     <div class="panel">
+      <h2>Edit/Disable Facility</h2>
+      <label>Facility</label>
+      <select id="facSelect"></select>
+      <label>New name</label>
+      <input id="facEditName" placeholder="Leave blank to keep" />
+      <label>New address</label>
+      <input id="facEditAddress" placeholder="Leave blank to keep" />
+      <label>Active</label>
+      <select id="facEditActive">
+        <option value="">No change</option>
+        <option value="1">Active</option>
+        <option value="0">Inactive</option>
+      </select>
+      <button onclick="updateFacility()">Update Facility</button>
+      <div id="facEditMsg" class="msg"></div>
+    </div>
+
+    <div class="panel">
       <h2>Add Member</h2>
       <div class="row">
         <div>
@@ -176,13 +194,47 @@
     </div>
 
     <div class="panel">
+      <h2>Edit/Disable Member</h2>
+      <label>Member</label>
+      <select id="memSelect"></select>
+      <label>First name</label>
+      <input id="memEditFirst" />
+      <label>Last name</label>
+      <input id="memEditLast" />
+      <label>Phone</label>
+      <input id="memEditPhone" />
+      <label>Address</label>
+      <input id="memEditAddress" />
+      <label>Belt rank</label>
+      <input id="memEditBelt" />
+      <label>Promotion start date</label>
+      <input id="memEditPromo" />
+      <label>Student type</label>
+      <select id="memEditType">
+        <option value="">No change</option>
+        <option value="adult">Adult</option>
+        <option value="youth">Youth</option>
+      </select>
+      <label>Active</label>
+      <select id="memEditActive">
+        <option value="">No change</option>
+        <option value="1">Active</option>
+        <option value="0">Inactive</option>
+      </select>
+      <button onclick="updateMember()">Update Member</button>
+      <div id="memEditMsg" class="msg"></div>
+    </div>
+
+    <div class="panel">
       <h2>Reports</h2>
       <button onclick="loadSummary()">Load Member Summary</button>
+      <button class="secondary" onclick="exportSummary()">Export Summary CSV</button>
       <div id="reportMsg" class="msg"></div>
       <div id="summaryWrap"></div>
       <label>Member detail</label>
       <select id="memberSelect"></select>
       <button class="secondary" onclick="loadMemberDetail()">Load Member Detail</button>
+      <button class="secondary" onclick="exportMemberDetail()">Export Member CSV</button>
       <div id="memberDetail"></div>
     </div>
 
@@ -199,6 +251,8 @@
     const summaryWrap = document.getElementById("summaryWrap");
     const memberSelect = document.getElementById("memberSelect");
     const memberDetail = document.getElementById("memberDetail");
+    const facSelect = document.getElementById("facSelect");
+    const memSelect = document.getElementById("memSelect");
 
     function setMsg(el, text, ok=null) {
       el.textContent = text;
@@ -222,6 +276,8 @@
       try {
         await fetch("/admin/ping", { headers: authHeaders() });
         setMsg(authMsg, "Unlocked.", true);
+        await loadFacilities();
+        await loadMembers();
       } catch {
         setMsg(authMsg, "Password check failed.", false);
       }
@@ -294,6 +350,68 @@
         setMsg(document.getElementById("memMsg"), `Member created: ${data.member_id}`, true);
       } catch (e) {
         setMsg(document.getElementById("memMsg"), String(e), false);
+      }
+    }
+
+    async function updateFacility() {
+      const id = facSelect.value;
+      if (!id) return setMsg(document.getElementById("facEditMsg"), "Pick a facility.", false);
+      const payload = {};
+      const name = document.getElementById("facEditName").value.trim();
+      const address = document.getElementById("facEditAddress").value.trim();
+      const active = document.getElementById("facEditActive").value;
+      if (name) payload.name = name;
+      if (address) payload.address = address;
+      if (active !== "") payload.active = Number(active);
+
+      try {
+        const res = await fetch(`/admin/facilities/${encodeURIComponent(id)}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", ...authHeaders() },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Update failed");
+        setMsg(document.getElementById("facEditMsg"), "Facility updated.", true);
+        await loadFacilities();
+      } catch (e) {
+        setMsg(document.getElementById("facEditMsg"), String(e), false);
+      }
+    }
+
+    async function updateMember() {
+      const id = memSelect.value;
+      if (!id) return setMsg(document.getElementById("memEditMsg"), "Pick a member.", false);
+      const payload = {};
+      const first = document.getElementById("memEditFirst").value.trim();
+      const last = document.getElementById("memEditLast").value.trim();
+      const phone = document.getElementById("memEditPhone").value.trim();
+      const address = document.getElementById("memEditAddress").value.trim();
+      const belt = document.getElementById("memEditBelt").value.trim();
+      const promo = document.getElementById("memEditPromo").value.trim();
+      const studentType = document.getElementById("memEditType").value;
+      const active = document.getElementById("memEditActive").value;
+      if (first) payload.first_name = first;
+      if (last) payload.last_name = last;
+      if (phone) payload.phone = phone;
+      if (address) payload.address = address;
+      if (belt) payload.belt_rank = belt;
+      if (promo) payload.promotion_start_date = promo;
+      if (studentType) payload.student_type = studentType;
+      if (active !== "") payload.active = Number(active);
+
+      try {
+        const res = await fetch(`/admin/members/${encodeURIComponent(id)}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", ...authHeaders() },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Update failed");
+        setMsg(document.getElementById("memEditMsg"), "Member updated.", true);
+        await loadMembers();
+      } catch (e) {
+        setMsg(document.getElementById("memEditMsg"), String(e), false);
       }
     }
 
@@ -375,6 +493,55 @@
       `;
     }
 
+    async function exportSummary() {
+      try {
+        const res = await fetch("/admin/reports/members-summary.csv", { headers: authHeaders() });
+        if (!res.ok) throw new Error("Export failed");
+        const blob = await res.blob();
+        downloadBlob(blob, "members_summary.csv");
+      } catch (e) {
+        setMsg(reportMsg, String(e), false);
+      }
+    }
+
+    async function exportMemberDetail() {
+      const id = memberSelect.value;
+      if (!id) return;
+      try {
+        const res = await fetch(`/admin/reports/member/${encodeURIComponent(id)}.csv`, { headers: authHeaders() });
+        if (!res.ok) throw new Error("Export failed");
+        const blob = await res.blob();
+        downloadBlob(blob, `member_${id}.csv`);
+      } catch (e) {
+        memberDetail.innerHTML = `<div class="msg bad">${String(e)}</div>`;
+      }
+    }
+
+    async function loadFacilities() {
+      facSelect.innerHTML = "";
+      const res = await fetch("/facilities");
+      const data = await res.json();
+      data.forEach((f) => {
+        const opt = document.createElement("option");
+        opt.value = f.id;
+        opt.textContent = `${f.name} (${f.id})`;
+        facSelect.appendChild(opt);
+      });
+    }
+
+    async function loadMembers() {
+      memSelect.innerHTML = "";
+      const res = await fetch("/admin/members", { headers: authHeaders() });
+      if (!res.ok) return;
+      const data = await res.json();
+      data.forEach((m) => {
+        const opt = document.createElement("option");
+        opt.value = m.id;
+        opt.textContent = `${m.first_name} ${m.last_name}`;
+        memSelect.appendChild(opt);
+      });
+    }
+
     async function loadQrLinks() {
       const container = document.getElementById("qrLinks");
       container.innerHTML = "";
@@ -402,6 +569,17 @@
       } catch (e) {
         container.innerHTML = `<div class="msg bad">${String(e)}</div>`;
       }
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
     }
   </script>
 </body>

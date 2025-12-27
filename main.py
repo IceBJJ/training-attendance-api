@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from pydantic import BaseModel
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict
@@ -200,6 +200,21 @@ class LocationCreate(BaseModel):
     description: Optional[str] = None
     qr_value: str
 
+class FacilityUpdate(BaseModel):
+    name: Optional[str] = None
+    address: Optional[str] = None
+    active: Optional[int] = None
+
+class MemberUpdate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    belt_rank: Optional[str] = None
+    promotion_start_date: Optional[str] = None
+    student_type: Optional[str] = None
+    active: Optional[int] = None
+
 # ---------- Facilities / Locations ----------
 @app.get("/facilities")
 def list_facilities():
@@ -271,6 +286,39 @@ def create_facility(payload: FacilityCreate, request: Request):
         },
         "location": created_location,
     }
+
+@app.put("/admin/facilities/{facility_id}")
+def update_facility(facility_id: str, payload: FacilityUpdate, request: Request):
+    require_admin(request)
+
+    fields = []
+    params: List[object] = []
+    if payload.name is not None:
+        fields.append("name = ?")
+        params.append(payload.name.strip())
+    if payload.address is not None:
+        fields.append("address = ?")
+        params.append(payload.address)
+    if payload.active is not None:
+        fields.append("active = ?")
+        params.append(int(payload.active))
+
+    if not fields:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    params.append(facility_id)
+
+    with get_conn() as conn:
+        cur = conn.execute(
+            f"UPDATE facilities SET {', '.join(fields)} WHERE id = ?",
+            tuple(params),
+        )
+        conn.commit()
+
+    if cur.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Facility not found")
+
+    return {"status": "ok"}
 
 @app.post("/admin/locations")
 def create_location(payload: LocationCreate, request: Request):
@@ -381,6 +429,54 @@ def admin_list_members(request: Request, limit: int = 500):
 def admin_create_member(payload: MemberCreate, request: Request):
     require_admin(request)
     return create_member_record(payload)
+
+@app.put("/admin/members/{member_id}")
+def admin_update_member(member_id: str, payload: MemberUpdate, request: Request):
+    require_admin(request)
+
+    fields = []
+    params: List[object] = []
+    if payload.first_name is not None:
+        fields.append("first_name = ?")
+        params.append(normalize_name(payload.first_name))
+    if payload.last_name is not None:
+        fields.append("last_name = ?")
+        params.append(normalize_name(payload.last_name))
+    if payload.phone is not None:
+        fields.append("phone = ?")
+        params.append(normalize_phone(payload.phone))
+    if payload.address is not None:
+        fields.append("address = ?")
+        params.append(payload.address)
+    if payload.belt_rank is not None:
+        fields.append("belt_rank = ?")
+        params.append(payload.belt_rank)
+    if payload.promotion_start_date is not None:
+        fields.append("promotion_start_date = ?")
+        params.append(payload.promotion_start_date)
+    if payload.student_type is not None:
+        fields.append("student_type = ?")
+        params.append(payload.student_type.strip())
+    if payload.active is not None:
+        fields.append("active = ?")
+        params.append(int(payload.active))
+
+    if not fields:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    params.append(member_id)
+
+    with get_conn() as conn:
+        cur = conn.execute(
+            f"UPDATE members SET {', '.join(fields)} WHERE id = ?",
+            tuple(params),
+        )
+        conn.commit()
+
+    if cur.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Member not found")
+
+    return {"status": "ok"}
 
 @app.get("/admin/ping")
 def admin_ping(request: Request):
@@ -570,6 +666,39 @@ def report_members_summary(request: Request):
 
     return results
 
+@app.get("/admin/reports/members-summary.csv")
+def report_members_summary_csv(request: Request):
+    require_admin(request)
+    rows = report_members_summary(request)
+
+    header = [
+        "id",
+        "first_name",
+        "last_name",
+        "belt_rank",
+        "student_type",
+        "promotion_start_date",
+        "months_since_promotion",
+        "sessions_since_promotion",
+        "active",
+    ]
+    lines = [",".join(header)]
+    for r in rows:
+        line = [
+            str(r.get("id") or ""),
+            str(r.get("first_name") or ""),
+            str(r.get("last_name") or ""),
+            str(r.get("belt_rank") or ""),
+            str(r.get("student_type") or ""),
+            str(r.get("promotion_start_date") or ""),
+            str(r.get("months_since_promotion") or ""),
+            str(r.get("sessions_since_promotion") or ""),
+            str(r.get("active") or ""),
+        ]
+        lines.append(",".join(line))
+
+    return Response("\n".join(lines), media_type="text/csv")
+
 @app.get("/admin/reports/member/{member_id}")
 def report_member_detail(member_id: str, request: Request):
     require_admin(request)
@@ -626,3 +755,12 @@ def report_member_detail(member_id: str, request: Request):
         "months_since_promotion": months_elapsed,
         "sessions_by_month": monthly,
     }
+
+@app.get("/admin/reports/member/{member_id}.csv")
+def report_member_detail_csv(member_id: str, request: Request):
+    require_admin(request)
+    data = report_member_detail(member_id, request)
+    lines = ["month,sessions"]
+    for row in data["sessions_by_month"]:
+        lines.append(f"{row['month']},{row['sessions']}")
+    return Response("\n".join(lines), media_type="text/csv")
