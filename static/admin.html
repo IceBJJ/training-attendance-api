@@ -1,0 +1,408 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BJJ Admin</title>
+  <style>
+    :root {
+      --bg: #0f1411;
+      --panel: #161c19;
+      --panel-2: #1c2420;
+      --text: #e9f3ed;
+      --muted: #a6b6ab;
+      --accent: #79d498;
+      --accent-2: #d4a15d;
+      --danger: #e27171;
+      --border: #2b3a32;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Space Grotesk", "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(800px 500px at 10% 10%, rgba(121, 212, 152, 0.12), transparent),
+        radial-gradient(800px 500px at 90% 20%, rgba(212, 161, 93, 0.08), transparent),
+        var(--bg);
+      padding: 24px;
+    }
+    h1 { margin: 0 0 6px; font-size: 28px; letter-spacing: 0.4px; }
+    h2 { margin: 20px 0 10px; font-size: 20px; }
+    p { margin: 0 0 14px; color: var(--muted); }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+    label { display: block; margin-top: 10px; font-size: 13px; color: var(--muted); }
+    input, select, button, textarea {
+      width: 100%;
+      margin-top: 6px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--panel-2);
+      color: var(--text);
+      font-size: 14px;
+    }
+    textarea { min-height: 70px; resize: vertical; }
+    button {
+      background: linear-gradient(120deg, var(--accent), #57b87a);
+      color: #0d140f;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+    }
+    button.secondary {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .row { display: flex; gap: 10px; }
+    .row > * { flex: 1; }
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(121, 212, 152, 0.2);
+      color: var(--accent);
+      font-size: 12px;
+      margin-left: 8px;
+    }
+    .msg {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #111815;
+      white-space: pre-wrap;
+    }
+    .ok { border-color: rgba(121, 212, 152, 0.6); }
+    .bad { border-color: rgba(226, 113, 113, 0.7); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin-top: 10px;
+    }
+    th, td {
+      border-bottom: 1px solid var(--border);
+      padding: 8px 6px;
+      text-align: left;
+    }
+    th { color: var(--muted); font-weight: 600; }
+    a { color: var(--accent); text-decoration: none; }
+    .small { font-size: 12px; color: var(--muted); }
+  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <h1>IceBJJ Admin <span class="tag">Maintenance</span></h1>
+  <p>Manage facilities, members, and reports. Password is required for changes.</p>
+
+  <div class="panel">
+    <h2>Admin Access</h2>
+    <div class="row">
+      <input id="adminPass" type="password" placeholder="Admin password" />
+      <button onclick="unlock()">Unlock</button>
+      <button class="secondary" onclick="lock()">Lock</button>
+    </div>
+    <div id="authMsg" class="msg">Locked.</div>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>Add Facility + QR</h2>
+      <label>Facility name</label>
+      <input id="facName" placeholder="Findlay BJJ" />
+      <label>Address</label>
+      <input id="facAddress" placeholder="123 Main St" />
+      <label>Active</label>
+      <select id="facActive">
+        <option value="1">Active</option>
+        <option value="0">Inactive</option>
+      </select>
+      <label>Facility ID (optional)</label>
+      <input id="facId" placeholder="FAC_FINDLAY_BJJ" />
+      <label>QR value (optional)</label>
+      <input id="facQr" placeholder="QR_FAC_FINDLAY_BJJ" />
+      <div class="small">If blank, IDs and QR are auto-generated.</div>
+      <button onclick="createFacility()">Create Facility</button>
+      <div id="facMsg" class="msg"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Add Member</h2>
+      <div class="row">
+        <div>
+          <label>First name</label>
+          <input id="memFirst" />
+        </div>
+        <div>
+          <label>Last name</label>
+          <input id="memLast" />
+        </div>
+      </div>
+      <label>Phone</label>
+      <input id="memPhone" />
+      <label>Address</label>
+      <input id="memAddress" />
+      <label>Belt rank</label>
+      <input id="memBelt" placeholder="Blue" />
+      <label>Promotion start date</label>
+      <input id="memPromo" placeholder="YYYY-MM-DD" />
+      <label>Student type</label>
+      <select id="memType">
+        <option value="adult">Adult</option>
+        <option value="youth">Youth</option>
+      </select>
+      <label>Active</label>
+      <select id="memActive">
+        <option value="1">Active</option>
+        <option value="0">Inactive</option>
+      </select>
+      <button onclick="createMember()">Add Member</button>
+      <div id="memMsg" class="msg"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Reports</h2>
+      <button onclick="loadSummary()">Load Member Summary</button>
+      <div id="reportMsg" class="msg"></div>
+      <div id="summaryWrap"></div>
+      <label>Member detail</label>
+      <select id="memberSelect"></select>
+      <button class="secondary" onclick="loadMemberDetail()">Load Member Detail</button>
+      <div id="memberDetail"></div>
+    </div>
+
+    <div class="panel">
+      <h2>QR Print Pages</h2>
+      <button onclick="loadQrLinks()">Load Facilities</button>
+      <div id="qrLinks"></div>
+    </div>
+  </div>
+
+  <script>
+    const authMsg = document.getElementById("authMsg");
+    const reportMsg = document.getElementById("reportMsg");
+    const summaryWrap = document.getElementById("summaryWrap");
+    const memberSelect = document.getElementById("memberSelect");
+    const memberDetail = document.getElementById("memberDetail");
+
+    function setMsg(el, text, ok=null) {
+      el.textContent = text;
+      el.classList.remove("ok", "bad");
+      if (ok === true) el.classList.add("ok");
+      if (ok === false) el.classList.add("bad");
+    }
+
+    function getPassword() {
+      return sessionStorage.getItem("admin_password") || "";
+    }
+
+    function authHeaders() {
+      return { "X-Admin-Password": getPassword() };
+    }
+
+    async function unlock() {
+      const pass = document.getElementById("adminPass").value.trim();
+      if (!pass) return setMsg(authMsg, "Enter a password.", false);
+      sessionStorage.setItem("admin_password", pass);
+      try {
+        await fetch("/admin/ping", { headers: authHeaders() });
+        setMsg(authMsg, "Unlocked.", true);
+      } catch {
+        setMsg(authMsg, "Password check failed.", false);
+      }
+    }
+
+    function lock() {
+      sessionStorage.removeItem("admin_password");
+      setMsg(authMsg, "Locked.", false);
+    }
+
+    function slugify(s) {
+      return String(s || "")
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, "_")
+        .replace(/_+/g, "_")
+        .replace(/^_+|_+$/g, "");
+    }
+
+    async function createFacility() {
+      const name = document.getElementById("facName").value.trim();
+      if (!name) return setMsg(document.getElementById("facMsg"), "Facility name required.", false);
+      const idInput = document.getElementById("facId").value.trim();
+      const facilityId = idInput || `FAC_${slugify(name)}`;
+      const payload = {
+        id: idInput || null,
+        name: name,
+        address: document.getElementById("facAddress").value.trim() || null,
+        active: Number(document.getElementById("facActive").value),
+        create_location: true,
+        location_id: `LOC_${facilityId.replace(/^FAC_/, "")}_CHECKIN`,
+        location_name: "Check-in",
+        location_description: "Facility check-in QR",
+        qr_value: document.getElementById("facQr").value.trim() || `QR_${facilityId}`
+      };
+
+      try {
+        const res = await fetch("/admin/facilities", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeaders() },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Create failed");
+        setMsg(document.getElementById("facMsg"), `Created ${data.facility.id}\nQR: ${data.location ? data.location.qr_value : ""}`, true);
+      } catch (e) {
+        setMsg(document.getElementById("facMsg"), String(e), false);
+      }
+    }
+
+    async function createMember() {
+      const payload = {
+        first_name: document.getElementById("memFirst").value.trim(),
+        last_name: document.getElementById("memLast").value.trim(),
+        phone: document.getElementById("memPhone").value.trim() || null,
+        address: document.getElementById("memAddress").value.trim() || null,
+        belt_rank: document.getElementById("memBelt").value.trim() || null,
+        promotion_start_date: document.getElementById("memPromo").value.trim() || null,
+        student_type: document.getElementById("memType").value,
+        active: Number(document.getElementById("memActive").value)
+      };
+      try {
+        const res = await fetch("/admin/members", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeaders() },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Create failed");
+        setMsg(document.getElementById("memMsg"), `Member created: ${data.member_id}`, true);
+      } catch (e) {
+        setMsg(document.getElementById("memMsg"), String(e), false);
+      }
+    }
+
+    async function loadSummary() {
+      try {
+        const res = await fetch("/admin/reports/members-summary", { headers: authHeaders() });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Load failed");
+        setMsg(reportMsg, `Loaded ${data.length} members.`, true);
+        renderSummary(data);
+      } catch (e) {
+        setMsg(reportMsg, String(e), false);
+      }
+    }
+
+    function renderSummary(rows) {
+      summaryWrap.innerHTML = "";
+      memberSelect.innerHTML = "";
+
+      const table = document.createElement("table");
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Belt</th>
+            <th>Sessions Since Promotion</th>
+            <th>Months Since Promotion</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      `;
+      const tbody = table.querySelector("tbody");
+      rows.forEach((r) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${r.last_name}, ${r.first_name}</td>
+          <td>${r.belt_rank || ""}</td>
+          <td>${r.sessions_since_promotion}</td>
+          <td>${r.months_since_promotion ?? ""}</td>
+        `;
+        tbody.appendChild(tr);
+
+        const opt = document.createElement("option");
+        opt.value = r.id;
+        opt.textContent = `${r.first_name} ${r.last_name}`;
+        memberSelect.appendChild(opt);
+      });
+      summaryWrap.appendChild(table);
+    }
+
+    async function loadMemberDetail() {
+      const id = memberSelect.value;
+      if (!id) return;
+      try {
+        const res = await fetch(`/admin/reports/member/${encodeURIComponent(id)}`, { headers: authHeaders() });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Load failed");
+        renderMemberDetail(data);
+      } catch (e) {
+        memberDetail.innerHTML = `<div class="msg bad">${String(e)}</div>`;
+      }
+    }
+
+    function renderMemberDetail(data) {
+      const monthly = data.sessions_by_month || [];
+      let rows = "";
+      monthly.forEach((m) => {
+        rows += `<tr><td>${m.month}</td><td>${m.sessions}</td></tr>`;
+      });
+      memberDetail.innerHTML = `
+        <div class="msg ok">
+          Total sessions since promotion: ${data.sessions_since_promotion}\n
+          Months since promotion: ${data.months_since_promotion ?? "N/A"}
+        </div>
+        <table>
+          <thead><tr><th>Month</th><th>Sessions</th></tr></thead>
+          <tbody>${rows || "<tr><td colspan='2'>No sessions</td></tr>"}</tbody>
+        </table>
+      `;
+    }
+
+    async function loadQrLinks() {
+      const container = document.getElementById("qrLinks");
+      container.innerHTML = "";
+      try {
+        const [facRes, locRes] = await Promise.all([
+          fetch("/facilities"),
+          fetch("/locations")
+        ]);
+        const facs = await facRes.json();
+        const locs = await locRes.json();
+        const locByFacility = {};
+        locs.forEach((l) => { locByFacility[l.facility_id] = l; });
+
+        facs.forEach((f) => {
+          const loc = locByFacility[f.id];
+          const div = document.createElement("div");
+          div.className = "msg";
+          div.innerHTML = `
+            <strong>${f.name}</strong><br/>
+            QR: ${loc ? loc.qr_value : "Missing"}<br/>
+            <a href="/qr/${encodeURIComponent(f.id)}" target="_blank">Print QR</a>
+          `;
+          container.appendChild(div);
+        });
+      } catch (e) {
+        container.innerHTML = `<div class="msg bad">${String(e)}</div>`;
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,7 +1,7 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 from datetime import datetime, timedelta
-from typing import Optional, List
+from typing import Optional, List, Dict
 import re
 import uuid
 from urllib.parse import urlparse, parse_qs
@@ -30,6 +30,20 @@ def debug_static():
         "checkin_exists": os.path.exists(os.path.join(STATIC_DIR, "checkin.html")),
         "static_files": os.listdir(STATIC_DIR) if os.path.isdir(STATIC_DIR) else [],
     }
+
+@app.get("/admin")
+def admin_page():
+    path = os.path.join(STATIC_DIR, "admin.html")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="admin.html not found in ./static")
+    return FileResponse(path)
+
+@app.get("/qr/{facility_id}")
+def qr_print_page(facility_id: str):
+    path = os.path.join(STATIC_DIR, "qr_print.html")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="qr_print.html not found in ./static")
+    return FileResponse(path)
 
 @app.get("/")
 def home():
@@ -80,6 +94,50 @@ def normalize_qr_value(s: str) -> str:
             return path.split("/")[-1]
     return raw
 
+def slugify(s: str) -> str:
+    value = (s or "").strip().upper()
+    value = re.sub(r"[^A-Z0-9]+", "_", value)
+    value = re.sub(r"_+", "_", value).strip("_")
+    return value
+
+def default_facility_id(name: str) -> str:
+    return f"FAC_{slugify(name)}"
+
+def default_location_id(facility_id: str) -> str:
+    suffix = facility_id
+    if suffix.startswith("FAC_"):
+        suffix = suffix[4:]
+    return f"LOC_{suffix}_CHECKIN"
+
+def default_qr_value(facility_id: str) -> str:
+    return f"QR_{facility_id}"
+
+def parse_promotion_date(value: Optional[str]) -> Optional[datetime]:
+    if not value:
+        return None
+    v = value.strip()
+    try:
+        return datetime.fromisoformat(v)
+    except ValueError:
+        try:
+            return datetime.strptime(v, "%Y-%m-%d")
+        except ValueError:
+            return None
+
+def months_since(start: datetime, end: datetime) -> int:
+    months = (end.year - start.year) * 12 + (end.month - start.month)
+    if end.day >= start.day:
+        months += 1
+    return max(0, months)
+
+def require_admin(request: Request) -> None:
+    expected = os.getenv("ADMIN_PASSWORD")
+    if not expected:
+        raise HTTPException(status_code=500, detail="Admin password not configured")
+    provided = request.headers.get("x-admin-password")
+    if provided != expected:
+        raise HTTPException(status_code=401, detail="Invalid admin password")
+
 def find_member_by_name(conn, first_name: str, last_name: str, phone: Optional[str]):
     # Match names case-insensitively; if phone is provided, compare normalized digits.
     rows = conn.execute(
@@ -124,6 +182,24 @@ class MemberCreate(BaseModel):
     student_type: str  # "adult" or "youth"
     active: int = 1
 
+class FacilityCreate(BaseModel):
+    id: Optional[str] = None
+    name: str
+    address: Optional[str] = None
+    active: int = 1
+    create_location: bool = True
+    location_id: Optional[str] = None
+    location_name: Optional[str] = "Check-in"
+    location_description: Optional[str] = "Facility check-in QR"
+    qr_value: Optional[str] = None
+
+class LocationCreate(BaseModel):
+    id: str
+    facility_id: str
+    name: str
+    description: Optional[str] = None
+    qr_value: str
+
 # ---------- Facilities / Locations ----------
 @app.get("/facilities")
 def list_facilities():
@@ -132,6 +208,98 @@ def list_facilities():
             "SELECT id, name, address, active FROM facilities WHERE active = 1 ORDER BY id"
         ).fetchall()
         return [dict(r) for r in rows]
+
+@app.post("/admin/facilities")
+def create_facility(payload: FacilityCreate, request: Request):
+    require_admin(request)
+
+    facility_id = payload.id or default_facility_id(payload.name)
+    location_id = payload.location_id or default_location_id(facility_id)
+    qr_value = payload.qr_value or default_qr_value(facility_id)
+
+    with get_conn() as conn:
+        existing = conn.execute(
+            "SELECT id FROM facilities WHERE id = ?",
+            (facility_id,),
+        ).fetchone()
+        if existing:
+            raise HTTPException(status_code=409, detail="Facility already exists")
+
+        conn.execute(
+            "INSERT INTO facilities (id, name, address, active) VALUES (?, ?, ?, ?)",
+            (facility_id, payload.name.strip(), payload.address, int(payload.active)),
+        )
+
+        created_location = None
+        if payload.create_location:
+            loc_existing = conn.execute(
+                "SELECT id FROM locations WHERE id = ? OR qr_value = ?",
+                (location_id, qr_value),
+            ).fetchone()
+            if loc_existing:
+                raise HTTPException(status_code=409, detail="Location or QR already exists")
+            conn.execute(
+                """
+                INSERT INTO locations (id, facility_id, name, description, qr_value)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    location_id,
+                    facility_id,
+                    (payload.location_name or "Check-in").strip(),
+                    payload.location_description,
+                    qr_value,
+                ),
+            )
+            created_location = {
+                "id": location_id,
+                "facility_id": facility_id,
+                "name": (payload.location_name or "Check-in").strip(),
+                "description": payload.location_description,
+                "qr_value": qr_value,
+            }
+
+        conn.commit()
+
+    return {
+        "status": "ok",
+        "facility": {
+            "id": facility_id,
+            "name": payload.name.strip(),
+            "address": payload.address,
+            "active": int(payload.active),
+        },
+        "location": created_location,
+    }
+
+@app.post("/admin/locations")
+def create_location(payload: LocationCreate, request: Request):
+    require_admin(request)
+
+    with get_conn() as conn:
+        existing = conn.execute(
+            "SELECT id FROM locations WHERE id = ? OR qr_value = ?",
+            (payload.id, payload.qr_value),
+        ).fetchone()
+        if existing:
+            raise HTTPException(status_code=409, detail="Location or QR already exists")
+
+        conn.execute(
+            """
+            INSERT INTO locations (id, facility_id, name, description, qr_value)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                payload.id,
+                payload.facility_id,
+                payload.name.strip(),
+                payload.description,
+                payload.qr_value.strip(),
+            ),
+        )
+        conn.commit()
+
+    return {"status": "ok", "location_id": payload.id}
 
 @app.get("/locations")
 def list_locations(facility_id: Optional[str] = None):
@@ -163,8 +331,7 @@ def list_members(limit: int = 200):
         ).fetchall()
         return [dict(r) for r in rows]
 
-@app.post("/members")
-def create_member(payload: MemberCreate):
+def create_member_record(payload: MemberCreate) -> Dict[str, str]:
     fn = normalize_name(payload.first_name)
     ln = normalize_name(payload.last_name)
     ph = normalize_phone(payload.phone)
@@ -200,6 +367,25 @@ def create_member(payload: MemberCreate):
         conn.commit()
 
     return {"status": "ok", "member_id": member_id}
+
+@app.post("/members")
+def create_member(payload: MemberCreate):
+    return create_member_record(payload)
+
+@app.get("/admin/members")
+def admin_list_members(request: Request, limit: int = 500):
+    require_admin(request)
+    return list_members(limit=limit)
+
+@app.post("/admin/members")
+def admin_create_member(payload: MemberCreate, request: Request):
+    require_admin(request)
+    return create_member_record(payload)
+
+@app.get("/admin/ping")
+def admin_ping(request: Request):
+    require_admin(request)
+    return {"status": "ok"}
 
 @app.get("/members/lookup")
 def member_lookup(first_name: str, last_name: str, phone: Optional[str] = None):
@@ -334,3 +520,109 @@ def list_attendance(limit: int = 100):
             (limit,),
         ).fetchall()
         return [dict(r) for r in rows]
+
+# ---------- Reports (Admin) ----------
+@app.get("/admin/reports/members-summary")
+def report_members_summary(request: Request):
+    require_admin(request)
+    now = datetime.utcnow()
+
+    with get_conn() as conn:
+        members = conn.execute(
+            """
+            SELECT id, first_name, last_name, belt_rank, promotion_start_date, student_type, active
+            FROM members
+            ORDER BY last_name, first_name
+            """
+        ).fetchall()
+
+        results = []
+        for m in members:
+            start = parse_promotion_date(m["promotion_start_date"])
+            if start:
+                count_row = conn.execute(
+                    "SELECT COUNT(*) AS c FROM attendance WHERE user_id = ? AND check_in_time >= ?",
+                    (m["id"], start.isoformat()),
+                ).fetchone()
+                months_elapsed = months_since(start, now)
+            else:
+                count_row = conn.execute(
+                    "SELECT COUNT(*) AS c FROM attendance WHERE user_id = ?",
+                    (m["id"],),
+                ).fetchone()
+                months_elapsed = None
+
+            total_sessions = int(count_row["c"]) if count_row else 0
+
+            results.append(
+                {
+                    "id": m["id"],
+                    "first_name": m["first_name"],
+                    "last_name": m["last_name"],
+                    "belt_rank": m["belt_rank"],
+                    "student_type": m["student_type"],
+                    "promotion_start_date": m["promotion_start_date"],
+                    "months_since_promotion": months_elapsed,
+                    "sessions_since_promotion": total_sessions,
+                    "active": m["active"],
+                }
+            )
+
+    return results
+
+@app.get("/admin/reports/member/{member_id}")
+def report_member_detail(member_id: str, request: Request):
+    require_admin(request)
+    now = datetime.utcnow()
+
+    with get_conn() as conn:
+        member = conn.execute(
+            """
+            SELECT id, first_name, last_name, belt_rank, promotion_start_date, student_type, active
+            FROM members
+            WHERE id = ?
+            LIMIT 1
+            """,
+            (member_id,),
+        ).fetchone()
+        if not member:
+            raise HTTPException(status_code=404, detail="Member not found")
+
+        start = parse_promotion_date(member["promotion_start_date"])
+        if start:
+            rows = conn.execute(
+                """
+                SELECT check_in_time
+                FROM attendance
+                WHERE user_id = ? AND check_in_time >= ?
+                ORDER BY check_in_time
+                """,
+                (member_id, start.isoformat()),
+            ).fetchall()
+            months_elapsed = months_since(start, now)
+        else:
+            rows = conn.execute(
+                """
+                SELECT check_in_time
+                FROM attendance
+                WHERE user_id = ?
+                ORDER BY check_in_time
+                """,
+                (member_id,),
+            ).fetchall()
+            months_elapsed = None
+
+        bucket: Dict[str, int] = {}
+        for row in rows:
+            ts = datetime.fromisoformat(row["check_in_time"])
+            key = f"{ts.year:04d}-{ts.month:02d}"
+            bucket[key] = bucket.get(key, 0) + 1
+
+        monthly = [{"month": k, "sessions": bucket[k]} for k in sorted(bucket.keys())]
+
+    return {
+        "member": dict(member),
+        "sessions_since_promotion": sum(bucket.values()),
+        "months_since_promotion": months_elapsed,
+        "sessions_by_month": monthly,
+    }

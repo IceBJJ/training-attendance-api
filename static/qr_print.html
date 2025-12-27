@@ -1,0 +1,102 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Facility QR</title>
+  <style>
+    :root {
+      --bg: #f7f4ee;
+      --ink: #1b1b1b;
+      --accent: #0f5b3a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 28px;
+      font-family: "Space Grotesk", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(500px 300px at 0% 0%, rgba(15, 91, 58, 0.08), transparent),
+        radial-gradient(500px 300px at 100% 0%, rgba(15, 91, 58, 0.08), transparent),
+        var(--bg);
+    }
+    .card {
+      max-width: 520px;
+      margin: 0 auto;
+      background: #fff;
+      border: 2px solid var(--ink);
+      padding: 20px;
+      text-align: center;
+    }
+    h1 { margin: 0 0 6px; font-size: 26px; }
+    p { margin: 0 0 14px; color: #444; }
+    #qr {
+      margin: 18px auto;
+      display: inline-block;
+      padding: 10px;
+      border: 2px solid var(--ink);
+      background: #fff;
+    }
+    .footer { margin-top: 10px; font-size: 12px; color: #555; }
+    .btn {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 8px 14px;
+      border: 2px solid var(--ink);
+      background: var(--accent);
+      color: #fff;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    @media print {
+      body { background: #fff; padding: 0; }
+      .btn { display: none; }
+      .card { border: none; }
+    }
+  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+  <div class="card">
+    <h1 id="facilityName">Facility</h1>
+    <p id="facilityInfo">Scan to check in</p>
+    <div id="qr"></div>
+    <div class="footer" id="qrValue"></div>
+    <a class="btn" href="#" onclick="window.print(); return false;">Print</a>
+  </div>
+
+  <script>
+    async function loadQr() {
+      const parts = window.location.pathname.split("/");
+      const facilityId = parts[parts.length - 1];
+      const [facRes, locRes] = await Promise.all([
+        fetch(`/facilities`),
+        fetch(`/locations?facility_id=${encodeURIComponent(facilityId)}`)
+      ]);
+      const facilities = await facRes.json();
+      const locations = await locRes.json();
+      const facility = facilities.find(f => f.id === facilityId);
+      const location = locations[0];
+
+      const nameEl = document.getElementById("facilityName");
+      nameEl.textContent = facility ? facility.name : facilityId;
+      document.getElementById("facilityInfo").textContent = "Scan to check in";
+      document.getElementById("qrValue").textContent = location ? location.qr_value : "QR not found";
+
+      if (location && location.qr_value) {
+        new QRCode(document.getElementById("qr"), {
+          text: location.qr_value,
+          width: 280,
+          height: 280
+        });
+      }
+    }
+
+    loadQr();
+  </script>
+</body>
+</html>
