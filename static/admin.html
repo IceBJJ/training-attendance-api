@@ -272,6 +272,10 @@
     const memSelect = document.getElementById("memSelect");
     const memPhoneInput = document.getElementById("memPhone");
     const memEditPhoneInput = document.getElementById("memEditPhone");
+    const facAddressInput = document.getElementById("facAddress");
+    const facEditAddressInput = document.getElementById("facEditAddress");
+    const memAddressInput = document.getElementById("memAddress");
+    const memEditAddressInput = document.getElementById("memEditAddress");
     const facCurrent = document.getElementById("facCurrent");
     const memCurrent = document.getElementById("memCurrent");
     let facilityCache = [];
@@ -629,9 +633,9 @@
       const fac = facilityCache.find((f) => f.id === id);
       if (!fac) return;
       document.getElementById("facEditName").value = fac.name || "";
-      document.getElementById("facEditAddress").value = fac.address || "";
+      document.getElementById("facEditAddress").value = formatAddress(fac.address);
       document.getElementById("facEditActive").value = String(fac.active ?? "");
-      facCurrent.textContent = `Current: ${fac.name || ""}${fac.address ? " - " + fac.address : ""}`;
+      facCurrent.textContent = `Current: ${fac.name || ""}${fac.address ? " - " + formatAddress(fac.address) : ""}`;
     }
 
     function fillMemberFields() {
@@ -641,14 +645,15 @@
       document.getElementById("memEditFirst").value = mem.first_name || "";
       document.getElementById("memEditLast").value = mem.last_name || "";
       document.getElementById("memEditPhone").value = formatPhone(mem.phone);
-      document.getElementById("memEditAddress").value = mem.address || "";
+      document.getElementById("memEditAddress").value = formatAddress(mem.address);
       document.getElementById("memEditBelt").value = mem.belt_rank || "";
       document.getElementById("memEditPromo").value = formatDate(mem.promotion_start_date);
       document.getElementById("memEditType").value = mem.student_type || "";
       document.getElementById("memEditActive").value = String(mem.active ?? "");
       const phoneLabel = mem.phone ? ` - ${formatPhone(mem.phone)}` : "";
       const promoLabel = mem.promotion_start_date ? ` - ${formatDate(mem.promotion_start_date)}` : "";
-      memCurrent.textContent = `Current: ${mem.first_name || ""} ${mem.last_name || ""}${phoneLabel}${promoLabel}`;
+      const addrLabel = mem.address ? ` - ${formatAddress(mem.address)}` : "";
+      memCurrent.textContent = `Current: ${mem.first_name || ""} ${mem.last_name || ""}${phoneLabel}${promoLabel}${addrLabel}`;
     }
 
     function formatPhone(value) {
@@ -696,6 +701,24 @@
       return v;
     }
 
+    function formatAddress(value) {
+      const raw = String(value || "").trim();
+      if (!raw) return "";
+      const spaced = raw.replace(/\s+/g, " ").replace(/\s*,\s*/g, ", ");
+      const parts = spaced.split(" ");
+      const titled = parts.map((word) => {
+        if (!word) return word;
+        const lower = word.toLowerCase();
+        if (/^\d+$/.test(lower)) return lower;
+        return lower.charAt(0).toUpperCase() + lower.slice(1);
+      });
+      return titled.join(" ");
+    }
+
+    function formatAddressPartial(value) {
+      return formatAddress(value);
+    }
+
     facSelect.addEventListener("change", fillFacilityFields);
     memSelect.addEventListener("change", fillMemberFields);
 
@@ -710,6 +733,20 @@
 
     bindPhoneInput(memPhoneInput);
     bindPhoneInput(memEditPhoneInput);
+
+    function bindAddressInput(input) {
+      if (!input) return;
+      const format = () => { input.value = formatAddressPartial(input.value); };
+      input.addEventListener("input", format);
+      input.addEventListener("change", format);
+      input.addEventListener("blur", format);
+      format();
+    }
+
+    bindAddressInput(facAddressInput);
+    bindAddressInput(facEditAddressInput);
+    bindAddressInput(memAddressInput);
+    bindAddressInput(memEditAddressInput);
 
     async function loadQrLinks() {
       const container = document.getElementById("qrLinks");
