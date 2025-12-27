@@ -160,6 +160,7 @@
       <h2>Edit/Disable Facility</h2>
       <label>Facility</label>
       <select id="facSelect"></select>
+      <div id="facCurrent" class="small"></div>
       <label>New name</label>
       <input id="facEditName" placeholder="Leave blank to keep" />
       <label>New address</label>
@@ -212,6 +213,7 @@
       <h2>Edit/Disable Member</h2>
       <label>Member</label>
       <select id="memSelect"></select>
+      <div id="memCurrent" class="small"></div>
       <label>First name</label>
       <input id="memEditFirst" />
       <label>Last name</label>
@@ -268,6 +270,8 @@
     const memberDetail = document.getElementById("memberDetail");
     const facSelect = document.getElementById("facSelect");
     const memSelect = document.getElementById("memSelect");
+    const facCurrent = document.getElementById("facCurrent");
+    const memCurrent = document.getElementById("memCurrent");
     let facilityCache = [];
     let memberCache = [];
 
@@ -624,6 +628,7 @@
       document.getElementById("facEditName").value = fac.name || "";
       document.getElementById("facEditAddress").value = fac.address || "";
       document.getElementById("facEditActive").value = String(fac.active ?? "");
+      facCurrent.textContent = `Current: ${fac.name || ""} ${fac.address ? "• " + fac.address : ""}`;
     }
 
     function fillMemberFields() {
@@ -638,6 +643,7 @@
       document.getElementById("memEditPromo").value = mem.promotion_start_date || "";
       document.getElementById("memEditType").value = mem.student_type || "";
       document.getElementById("memEditActive").value = String(mem.active ?? "");
+      memCurrent.textContent = `Current: ${mem.first_name || ""} ${mem.last_name || ""}`;
     }
 
     facSelect.addEventListener("change", fillFacilityFields);
