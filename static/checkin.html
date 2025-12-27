@@ -117,9 +117,24 @@
       return value || "";
     }
 
+    function formatPhonePartial(value) {
+      const digits = String(value || "").replace(/\D+/g, "");
+      if (digits.length <= 3) return digits;
+      if (digits.length <= 6) return `${digits.slice(0,3)}-${digits.slice(3)}`;
+      if (digits.length <= 10) {
+        const area = digits.slice(0,3);
+        const mid = digits.slice(3,6);
+        const tail = digits.slice(6);
+        return `(${area}) ${mid}-${tail}`;
+      }
+      return `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6,10)}`;
+    }
+
+    // Apply formatting on load so stored values display nicely.
+    phoneEl.value = formatPhonePartial(phoneEl.value);
+
     phoneEl.addEventListener("input", () => {
-      const formatted = formatPhone(phoneEl.value);
-      phoneEl.value = formatted;
+      phoneEl.value = formatPhonePartial(phoneEl.value);
     });
 
     // Save identity locally for quick re-use.
