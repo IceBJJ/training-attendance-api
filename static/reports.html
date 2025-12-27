@@ -92,6 +92,7 @@
     <h1>Reports</h1>
     <p>Read-only reports (no password required).</p>
 
+    <!-- Summary actions -->
     <button onclick="loadSummary()">Load Member Summary</button>
     <button onclick="exportSummary()">Export Summary CSV</button>
     <div id="msg" class="msg"></div>
@@ -114,6 +115,7 @@
       msg.textContent = text;
     }
 
+    // Fetch and render the summary report.
     async function loadSummary() {
       try {
         const res = await fetch("/reports/members-summary");
@@ -160,6 +162,7 @@
       summary.appendChild(table);
     }
 
+    // Fetch and render a single member detail report.
     async function loadDetail() {
       const id = memberSelect.value;
       if (!id) return;

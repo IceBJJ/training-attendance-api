@@ -59,6 +59,7 @@
   </div>
 
   <script>
+    // Load facilities and associated QR values.
     async function load() {
       const [facRes, locRes] = await Promise.all([
         fetch("/facilities"),

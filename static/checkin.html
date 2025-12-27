@@ -80,16 +80,17 @@
       if (ok === false) out.classList.add("bad");
     }
 
-    // Build absolute URLs on the SAME origin (Render)
+    // Build absolute URLs on the same origin (Render).
     function apiUrl(path) {
       return new URL(path, window.location.origin).toString();
     }
 
-    // Load saved identity
+    // Load saved identity from localStorage.
     firstEl.value = localStorage.getItem("bjj_first") || "";
     lastEl.value  = localStorage.getItem("bjj_last")  || "";
     phoneEl.value = localStorage.getItem("bjj_phone") || "";
 
+    // Normalize input fields into a payload.
     function getIdentity() {
       const first = (firstEl.value || "").trim();
       const last  = (lastEl.value || "").trim();
@@ -98,12 +99,14 @@
       return { first, last, phone: phone || null };
     }
     
+    // Keep only digits; last 10 digits for US numbers.
     function normalizePhone(value) {
       const digits = String(value || "").replace(/\D+/g, "");
       if (!digits) return "";
       return digits.length > 10 ? digits.slice(-10) : digits;
     }
 
+    // Save identity locally for quick re-use.
     async function saveIdentity() {
       const id = getIdentity();
       if (!id) return show("❌ Please enter first and last name.", false);
@@ -113,6 +116,7 @@
       show(`✅ Saved: ${id.first} ${id.last}`, true);
     }
 
+    // Validate membership before scanning.
     async function validateMember() {
       const id = getIdentity();
       if (!id) return show("❌ Please enter first and last name.", false);
@@ -141,6 +145,7 @@
     let html5Qr = null;
     let scanning = false;
 
+    // Start camera + process decoded QR value.
     async function startScan() {
       const id = getIdentity();
       if (!id) return show("❌ Enter your name first (first + last).", false);
@@ -184,7 +189,7 @@
               return show(`❌ POST failed (network/error)\n${e}`, false);
             }
 
-            // Try JSON parse, but don't die if it's HTML or error text
+            // Try JSON parse, but don't die if it's HTML or error text.
             let data = null;
             try { data = JSON.parse(bodyText); } catch {}
 

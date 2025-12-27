@@ -134,6 +134,7 @@
     <div id="authMsg" class="msg">Locked.</div>
   </div>
 
+  <!-- Admin actions and reports -->
   <div class="grid">
     <div class="panel">
       <h2>Add Facility + QR</h2>
@@ -275,10 +276,12 @@
       if (ok === false) el.classList.add("bad");
     }
 
+    // Password is stored per-session so refresh clears it.
     function getPassword() {
       return sessionStorage.getItem("admin_password") || "";
     }
 
+    // Attach admin header to protected API calls.
     function authHeaders() {
       return { "X-Admin-Password": getPassword() };
     }
@@ -316,6 +319,7 @@
         .replace(/^_+|_+$/g, "");
     }
 
+    // Facility + location creation in one step.
     async function createFacility() {
       const name = document.getElementById("facName").value.trim();
       if (!name) return setMsg(document.getElementById("facMsg"), "Facility name required.", false);
@@ -347,6 +351,7 @@
       }
     }
 
+    // Member creation.
     async function createMember() {
       const payload = {
         first_name: document.getElementById("memFirst").value.trim(),
@@ -372,6 +377,7 @@
       }
     }
 
+    // Update facility fields (including Active flag).
     async function updateFacility() {
       const id = facSelect.value;
       if (!id) return setMsg(document.getElementById("facEditMsg"), "Pick a facility.", false);
@@ -398,6 +404,7 @@
       }
     }
 
+    // Update member fields (including Active flag).
     async function updateMember() {
       const id = memSelect.value;
       if (!id) return setMsg(document.getElementById("memEditMsg"), "Pick a member.", false);
@@ -434,6 +441,7 @@
       }
     }
 
+    // Summary report (sessions and months since promotion).
     async function loadSummary() {
       try {
         const res = await fetch("/admin/reports/members-summary", { headers: authHeaders() });
@@ -478,6 +486,7 @@
       summaryWrap.appendChild(table);
     }
 
+    // Detailed report for a single member.
     async function loadMemberDetail() {
       const id = memberSelect.value;
       if (!id) return;
@@ -533,6 +542,7 @@
       }
     }
 
+    // Populate admin facility dropdown.
     async function loadFacilities() {
       facSelect.innerHTML = "";
       const res = await fetch("/admin/facilities", { headers: authHeaders() });
@@ -557,6 +567,7 @@
       });
     }
 
+    // Populate admin member dropdown.
     async function loadMembers() {
       memSelect.innerHTML = "";
       const res = await fetch("/admin/members", { headers: authHeaders() });
@@ -571,6 +582,7 @@
       });
     }
 
+    // Populate reports dropdown.
     async function loadReportMembers() {
       memberSelect.innerHTML = "";
       const res = await fetch("/admin/members", { headers: authHeaders() });

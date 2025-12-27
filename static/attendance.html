@@ -75,6 +75,7 @@
   </div>
 
   <script>
+    // Render latest attendance rows.
     async function load() {
       const res = await fetch("/attendance");
       const data = await res.json();
