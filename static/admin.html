@@ -274,12 +274,16 @@
       if (!pass) return setMsg(authMsg, "Enter a password.", false);
       sessionStorage.setItem("admin_password", pass);
       try {
-        await fetch("/admin/ping", { headers: authHeaders() });
+        const res = await fetch("/admin/ping", { headers: authHeaders() });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.detail || "Password check failed.");
+        }
         setMsg(authMsg, "Unlocked.", true);
         await loadFacilities();
         await loadMembers();
-      } catch {
-        setMsg(authMsg, "Password check failed.", false);
+      } catch (e) {
+        setMsg(authMsg, String(e), false);
       }
     }
 
