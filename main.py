@@ -31,20 +31,6 @@ def debug_static():
         "static_files": os.listdir(STATIC_DIR) if os.path.isdir(STATIC_DIR) else [],
     }
 
-@app.get("/debug/db")
-def debug_db():
-    db_url = os.getenv("DATABASE_URL")
-    if not db_url:
-        return {"database_url_set": False}
-    parsed = urlparse(db_url)
-    return {
-        "database_url_set": True,
-        "scheme": parsed.scheme,
-        "host": parsed.hostname,
-        "port": parsed.port,
-        "db_name": (parsed.path or "").lstrip("/"),
-    }
-
 @app.get("/")
 def home():
     path = os.path.join(STATIC_DIR, "checkin.html")
@@ -79,6 +65,7 @@ def normalize_phone(s: Optional[str]) -> Optional[str]:
     return digits if digits else None
 
 def normalize_qr_value(s: str) -> str:
+    # Accept raw codes or URLs; extract the meaningful token for lookup.
     raw = (s or "").strip().strip('"').strip("'")
     if not raw:
         return raw
@@ -94,6 +81,7 @@ def normalize_qr_value(s: str) -> str:
     return raw
 
 def find_member_by_name(conn, first_name: str, last_name: str, phone: Optional[str]):
+    # Match names case-insensitively; if phone is provided, compare normalized digits.
     rows = conn.execute(
         """
         SELECT id, first_name, last_name, phone, address, belt_rank, promotion_start_date, student_type, active, created_at
