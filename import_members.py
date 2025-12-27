@@ -15,6 +15,8 @@ def norm_phone(phone: str | None) -> str | None:
     if not phone:
         return None
     digits = re.sub(r"\D", "", phone)
+    if len(digits) > 10:
+        digits = digits[-10:]
     return digits if digits else None
 
 

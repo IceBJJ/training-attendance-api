@@ -64,6 +64,27 @@ def normalize_phone(s: Optional[str]) -> Optional[str]:
         digits = digits[-10:]
     return digits if digits else None
 
+def find_member_by_name(conn, first_name: str, last_name: str, phone: Optional[str]):
+    rows = conn.execute(
+        """
+        SELECT id, first_name, last_name, phone, address, belt_rank, promotion_start_date, student_type, active, created_at
+        FROM members
+        WHERE LOWER(first_name) = LOWER(?) AND LOWER(last_name) = LOWER(?)
+        """,
+        (first_name, last_name),
+    ).fetchall()
+
+    if not rows:
+        return None
+
+    if phone:
+        for row in rows:
+            if normalize_phone(row["phone"]) == phone:
+                return row
+        return None
+
+    return rows[0]
+
 @app.on_event("startup")
 def startup():
     init_db()
@@ -170,27 +191,7 @@ def member_lookup(first_name: str, last_name: str, phone: Optional[str] = None):
     ph = normalize_phone(phone)
 
     with get_conn() as conn:
-        # Case-insensitive match for names
-        if ph:
-            row = conn.execute(
-                """
-                SELECT id, first_name, last_name, phone, address, belt_rank, promotion_start_date, student_type, active, created_at
-                FROM members
-                WHERE LOWER(first_name) = LOWER(?) AND LOWER(last_name) = LOWER(?) AND phone = ?
-                LIMIT 1
-                """,
-                (fn, ln, ph),
-            ).fetchone()
-        else:
-            row = conn.execute(
-                """
-                SELECT id, first_name, last_name, phone, address, belt_rank, promotion_start_date, student_type, active, created_at
-                FROM members
-                WHERE LOWER(first_name) = LOWER(?) AND LOWER(last_name) = LOWER(?)
-                LIMIT 1
-                """,
-                (fn, ln),
-            ).fetchone()
+        row = find_member_by_name(conn, fn, ln, ph)
 
         if not row:
             return {"valid": False, "reason": "Not found"}
@@ -210,26 +211,7 @@ def scan_qr(payload: ScanRequest):
 
     # 1) Validate member exists
     with get_conn() as conn:
-        if ph:
-            member = conn.execute(
-                """
-                SELECT id, first_name, last_name, student_type, belt_rank, active
-                FROM members
-                WHERE LOWER(first_name) = LOWER(?) AND LOWER(last_name) = LOWER(?) AND phone = ?
-                LIMIT 1
-                """,
-                (fn, ln, ph),
-            ).fetchone()
-        else:
-            member = conn.execute(
-                """
-                SELECT id, first_name, last_name, student_type, belt_rank, active
-                FROM members
-                WHERE LOWER(first_name) = LOWER(?) AND LOWER(last_name) = LOWER(?)
-                LIMIT 1
-                """,
-                (fn, ln),
-            ).fetchone()
+        member = find_member_by_name(conn, fn, ln, ph)
 
         if not member or member["active"] != 1:
             raise HTTPException(
