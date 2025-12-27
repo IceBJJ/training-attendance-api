@@ -60,6 +60,8 @@ def normalize_phone(s: Optional[str]) -> Optional[str]:
     if not s:
         return None
     digits = re.sub(r"\D+", "", s)
+    if len(digits) > 10:
+        digits = digits[-10:]
     return digits if digits else None
 
 @app.on_event("startup")
