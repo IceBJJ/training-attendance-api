@@ -272,10 +272,6 @@
     const memSelect = document.getElementById("memSelect");
     const memPhoneInput = document.getElementById("memPhone");
     const memEditPhoneInput = document.getElementById("memEditPhone");
-    const facAddressInput = document.getElementById("facAddress");
-    const facEditAddressInput = document.getElementById("facEditAddress");
-    const memAddressInput = document.getElementById("memAddress");
-    const memEditAddressInput = document.getElementById("memEditAddress");
     const facCurrent = document.getElementById("facCurrent");
     const memCurrent = document.getElementById("memCurrent");
     let facilityCache = [];
@@ -341,7 +337,7 @@
       const payload = {
         id: idInput || null,
         name: name,
-        address: document.getElementById("facAddress").value.trim() || null,
+        address: formatAddress(document.getElementById("facAddress").value),
         active: Number(document.getElementById("facActive").value),
         create_location: true,
         location_id: `LOC_${facilityId.replace(/^FAC_/, "")}_CHECKIN`,
@@ -370,7 +366,7 @@
         first_name: document.getElementById("memFirst").value.trim(),
         last_name: document.getElementById("memLast").value.trim(),
         phone: document.getElementById("memPhone").value.trim() || null,
-        address: document.getElementById("memAddress").value.trim() || null,
+        address: formatAddress(document.getElementById("memAddress").value),
         belt_rank: document.getElementById("memBelt").value.trim() || null,
         promotion_start_date: normalizeDate(document.getElementById("memPromo").value),
         student_type: document.getElementById("memType").value,
@@ -396,7 +392,7 @@
       if (!id) return setMsg(document.getElementById("facEditMsg"), "Pick a facility.", false);
       const payload = {};
       const name = document.getElementById("facEditName").value.trim();
-      const address = document.getElementById("facEditAddress").value.trim();
+      const address = formatAddress(document.getElementById("facEditAddress").value);
       const active = document.getElementById("facEditActive").value;
       if (name) payload.name = name;
       if (address) payload.address = address;
@@ -425,7 +421,7 @@
       const first = document.getElementById("memEditFirst").value.trim();
       const last = document.getElementById("memEditLast").value.trim();
       const phone = document.getElementById("memEditPhone").value.trim();
-      const address = document.getElementById("memEditAddress").value.trim();
+      const address = formatAddress(document.getElementById("memEditAddress").value);
       const belt = document.getElementById("memEditBelt").value.trim();
       const promo = normalizeDate(document.getElementById("memEditPromo").value);
       const studentType = document.getElementById("memEditType").value;
@@ -728,14 +724,6 @@
       return titleCase(spaced);
     }
 
-    function formatAddressPartial(value) {
-      const raw = String(value || "");
-      if (raw.endsWith(" ")) {
-        return raw;
-      }
-      return formatAddress(raw);
-    }
-
     facSelect.addEventListener("change", fillFacilityFields);
     memSelect.addEventListener("change", fillMemberFields);
 
@@ -751,18 +739,6 @@
     bindPhoneInput(memPhoneInput);
     bindPhoneInput(memEditPhoneInput);
 
-    function bindAddressInput(input) {
-      if (!input) return;
-      const format = () => { input.value = formatAddressPartial(input.value); };
-      input.addEventListener("change", format);
-      input.addEventListener("blur", format);
-      format();
-    }
-
-    bindAddressInput(facAddressInput);
-    bindAddressInput(facEditAddressInput);
-    bindAddressInput(memAddressInput);
-    bindAddressInput(memEditAddressInput);
 
     async function loadQrLinks() {
       const container = document.getElementById("qrLinks");
