@@ -282,6 +282,7 @@
         setMsg(authMsg, "Unlocked.", true);
         await loadFacilities();
         await loadMembers();
+        await loadReportMembers();
       } catch (e) {
         setMsg(authMsg, String(e), false);
       }
@@ -458,10 +459,7 @@
         `;
         tbody.appendChild(tr);
 
-        const opt = document.createElement("option");
-        opt.value = r.id;
-        opt.textContent = `${r.first_name} ${r.last_name}`;
-        memberSelect.appendChild(opt);
+        addMemberOption(memberSelect, r.id, `${r.first_name} ${r.last_name}`);
       });
       summaryWrap.appendChild(table);
     }
@@ -555,11 +553,36 @@
       }
       const data = await res.json();
       data.forEach((m) => {
-        const opt = document.createElement("option");
-        opt.value = m.id;
-        opt.textContent = `${m.first_name} ${m.last_name}`;
-        memSelect.appendChild(opt);
+        addMemberOption(memSelect, m.id, `${m.first_name} ${m.last_name}`);
       });
+    }
+
+    async function loadReportMembers() {
+      memberSelect.innerHTML = "";
+      const res = await fetch("/admin/members", { headers: authHeaders() });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setMsg(reportMsg, data.detail || "Failed to load members for report.", false);
+        return;
+      }
+      const data = await res.json();
+      if (!data.length) {
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "No members found";
+        memberSelect.appendChild(opt);
+        return;
+      }
+      data.forEach((m) => {
+        addMemberOption(memberSelect, m.id, `${m.first_name} ${m.last_name}`);
+      });
+    }
+
+    function addMemberOption(select, id, label) {
+      const opt = document.createElement("option");
+      opt.value = id;
+      opt.textContent = label;
+      select.appendChild(opt);
     }
 
     async function loadQrLinks() {
