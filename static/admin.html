@@ -729,7 +729,11 @@
     }
 
     function formatAddressPartial(value) {
-      return formatAddress(value);
+      const raw = String(value || "");
+      if (raw.endsWith(" ")) {
+        return raw;
+      }
+      return formatAddress(raw);
     }
 
     facSelect.addEventListener("change", fillFacilityFields);
