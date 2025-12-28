@@ -1,0 +1,18 @@
+
+npg_cHLrew1ak0iy
+
+
+$env:DATABASE_URL = "postgresql://neondb_owner:npg_cHLrew1ak0iy@ep-fragrant-queen-a476ol85-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require"
+python -m uvicorn main:app --reload
+
+https://training-attendance-api.onrender.com/home
+
+https://training-attendance-api.onrender.com/qr-only
+
+https://training-attendance-api.onrender.com/reports?ts=123
+
+$env:DATABASE_URL = "postgresql://neondb_owner:npg_cHLrew1ak0iy@ep-fragrant-queen-a476ol85-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require"
+python sync_to_neon.py
+
+
+
