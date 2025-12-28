@@ -21,7 +21,10 @@ TABLES = [
     ("attendance", [
         "id", "user_id", "facility_id", "location_id",
         "check_in_time", "check_out_time", "member_id"
-    ], []),
+    ], [
+        "user_id", "facility_id", "location_id",
+        "check_in_time", "check_out_time", "member_id"
+    ]),
 ]
 
 
@@ -73,6 +76,22 @@ def load_local_member_map(conn) -> dict[str, tuple]:
     return mapping
 
 
+def normalize_member_id(value: str) -> str:
+    v = (value or "").strip().lower()
+    if v.startswith("mem_"):
+        v = v[4:]
+    return v
+
+
+def load_local_member_id_aliases(conn) -> dict[str, str]:
+    cur = conn.execute("SELECT id FROM members")
+    aliases = {}
+    for row in cur.fetchall():
+        member_id = row[0]
+        aliases[normalize_member_id(member_id)] = member_id
+    return aliases
+
+
 def main() -> None:
     db_url = os.getenv("DATABASE_URL")
     if not db_url:
@@ -84,6 +103,7 @@ def main() -> None:
     try:
         neon_member_by_key = load_neon_member_map(pg_conn)
         local_member_by_id = load_local_member_map(sqlite_conn)
+        local_member_aliases = load_local_member_id_aliases(sqlite_conn)
         counts = {}
         for table, columns, update_cols in TABLES:
             rows = fetch_sqlite_rows(sqlite_conn, table, columns)
@@ -104,6 +124,10 @@ def main() -> None:
                 for row in rows:
                     row = list(row)
                     local_key = local_member_by_id.get(row[1])
+                    if not local_key:
+                        alias = local_member_aliases.get(normalize_member_id(row[1]))
+                        if alias:
+                            local_key = local_member_by_id.get(alias)
                     if local_key:
                         mapped_id = neon_member_by_key.get(local_key)
                         if mapped_id:
