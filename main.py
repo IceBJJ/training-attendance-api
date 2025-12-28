@@ -735,6 +735,10 @@ def report_members_summary_data(facility_id: Optional[str] = None):
 
             total_sessions = int(count_row["c"]) if count_row else 0
 
+            # When filtering by facility, hide members with no sessions there.
+            if facility_id and total_sessions == 0:
+                continue
+
             results.append(
                 {
                     "id": m["id"],
