@@ -764,7 +764,7 @@
         opt.textContent = attendanceLabel(row);
         attSelect.appendChild(opt);
       });
-      populateSelect(attMember, memberCache, (m) => `${m.first_name} ${m.last_name}`);
+      populateMemberFilter(attMember, memberCache);
       populateSelect(attAddMember, memberCache, (m) => `${m.first_name} ${m.last_name}`);
       populateSelect(attFacility, facilityCache, (f) => `${f.name}`);
       populateSelect(attAddFacility, facilityCache, (f) => `${f.name}`);
@@ -785,6 +785,20 @@
         const opt = document.createElement("option");
         opt.value = item.id;
         opt.textContent = labelFn(item);
+        select.appendChild(opt);
+      });
+    }
+
+    function populateMemberFilter(select, items) {
+      select.innerHTML = "";
+      const all = document.createElement("option");
+      all.value = "";
+      all.textContent = "All members";
+      select.appendChild(all);
+      items.forEach((m) => {
+        const opt = document.createElement("option");
+        opt.value = m.id;
+        opt.textContent = `${m.first_name} ${m.last_name}`;
         select.appendChild(opt);
       });
     }
@@ -858,6 +872,27 @@
       const locName = location ? location.name : row.location_id;
       const timeRange = row.check_out_time ? `${formatDateTime(row.check_in_time)} → ${formatDateTime(row.check_out_time)}` : formatDateTime(row.check_in_time);
       attCurrent.textContent = `Current: ${name} - ${facName} - ${locName} - ${timeRange}`;
+    }
+
+    function refreshAttendanceOptions(filterUserId) {
+      attSelect.innerHTML = "";
+      const rows = filterUserId
+        ? attendanceCache.filter((r) => r.user_id === filterUserId)
+        : attendanceCache;
+      rows.forEach((row) => {
+        const opt = document.createElement("option");
+        opt.value = row.id;
+        opt.textContent = attendanceLabel(row);
+        attSelect.appendChild(opt);
+      });
+      if (rows.length) {
+        attSelect.value = rows[0].id;
+        fillAttendanceFields();
+      } else {
+        attCurrent.textContent = "Current: no attendance found for this member.";
+        attCheckIn.value = "";
+        attCheckOut.value = "";
+      }
     }
 
     function formatPhone(value) {
@@ -960,6 +995,9 @@
     memSelect.addEventListener("change", fillMemberFields);
     reportFacilitySelect.addEventListener("change", loadSummary);
     attSelect.addEventListener("change", fillAttendanceFields);
+    attMember.addEventListener("change", () => {
+      refreshAttendanceOptions(attMember.value);
+    });
 
     function bindPhoneInput(input) {
       if (!input) return;
