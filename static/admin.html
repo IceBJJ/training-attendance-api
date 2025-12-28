@@ -246,6 +246,7 @@
       <h2>Edit Attendance</h2>
       <label>Attendance</label>
       <select id="attSelect"></select>
+      <div id="attCurrent" class="small"></div>
       <label>Member</label>
       <select id="attMember"></select>
       <label>Facility</label>
@@ -313,6 +314,7 @@
     const facCurrent = document.getElementById("facCurrent");
     const memCurrent = document.getElementById("memCurrent");
     const attSelect = document.getElementById("attSelect");
+    const attCurrent = document.getElementById("attCurrent");
     const attMember = document.getElementById("attMember");
     const attFacility = document.getElementById("attFacility");
     const attLocation = document.getElementById("attLocation");
@@ -848,6 +850,14 @@
       attLocation.value = row.location_id || "";
       attCheckIn.value = formatDateTime(row.check_in_time);
       attCheckOut.value = formatDateTime(row.check_out_time);
+      const member = memberCache.find((m) => m.id === row.user_id);
+      const facility = facilityCache.find((f) => f.id === row.facility_id);
+      const location = locationCache.find((l) => l.id === row.location_id);
+      const name = member ? `${member.first_name} ${member.last_name}` : row.user_id;
+      const facName = facility ? facility.name : row.facility_id;
+      const locName = location ? location.name : row.location_id;
+      const timeRange = row.check_out_time ? `${formatDateTime(row.check_in_time)} → ${formatDateTime(row.check_out_time)}` : formatDateTime(row.check_in_time);
+      attCurrent.textContent = `Current: ${name} - ${facName} - ${locName} - ${timeRange}`;
     }
 
     function formatPhone(value) {
