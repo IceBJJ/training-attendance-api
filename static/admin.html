@@ -243,6 +243,41 @@
     </div>
 
     <div class="panel">
+      <h2>Edit Attendance</h2>
+      <label>Attendance</label>
+      <select id="attSelect"></select>
+      <label>Member</label>
+      <select id="attMember"></select>
+      <label>Facility</label>
+      <select id="attFacility"></select>
+      <label>Location</label>
+      <select id="attLocation"></select>
+      <label>Check-in time (MM/DD/YYYY HH:MM)</label>
+      <input id="attCheckIn" placeholder="12/27/2025 18:30" />
+      <label>Check-out time (optional)</label>
+      <input id="attCheckOut" placeholder="12/27/2025 20:00" />
+      <button onclick="updateAttendance()">Update Attendance</button>
+      <button class="secondary" onclick="deleteAttendance()">Delete Attendance</button>
+      <div id="attEditMsg" class="msg"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Add Attendance</h2>
+      <label>Member</label>
+      <select id="attAddMember"></select>
+      <label>Facility</label>
+      <select id="attAddFacility"></select>
+      <label>Location</label>
+      <select id="attAddLocation"></select>
+      <label>Check-in time (MM/DD/YYYY HH:MM)</label>
+      <input id="attAddCheckIn" placeholder="12/27/2025 18:30" />
+      <label>Check-out time (optional)</label>
+      <input id="attAddCheckOut" placeholder="12/27/2025 20:00" />
+      <button onclick="createAttendance()">Add Attendance</button>
+      <div id="attAddMsg" class="msg"></div>
+    </div>
+
+    <div class="panel">
       <h2>Reports</h2>
       <label>Facility</label>
       <select id="reportFacilitySelect"></select>
@@ -277,8 +312,23 @@
     const memEditPhoneInput = document.getElementById("memEditPhone");
     const facCurrent = document.getElementById("facCurrent");
     const memCurrent = document.getElementById("memCurrent");
+    const attSelect = document.getElementById("attSelect");
+    const attMember = document.getElementById("attMember");
+    const attFacility = document.getElementById("attFacility");
+    const attLocation = document.getElementById("attLocation");
+    const attCheckIn = document.getElementById("attCheckIn");
+    const attCheckOut = document.getElementById("attCheckOut");
+    const attEditMsg = document.getElementById("attEditMsg");
+    const attAddMember = document.getElementById("attAddMember");
+    const attAddFacility = document.getElementById("attAddFacility");
+    const attAddLocation = document.getElementById("attAddLocation");
+    const attAddCheckIn = document.getElementById("attAddCheckIn");
+    const attAddCheckOut = document.getElementById("attAddCheckOut");
+    const attAddMsg = document.getElementById("attAddMsg");
     let facilityCache = [];
     let memberCache = [];
+    let locationCache = [];
+    let attendanceCache = [];
 
     function setMsg(el, text, ok=null) {
       el.textContent = text;
@@ -312,6 +362,8 @@
         await loadFacilities();
         await loadMembers();
         await loadReportMembers();
+        await loadLocations();
+        await loadAttendance();
       } catch (e) {
         setMsg(authMsg, String(e), false);
       }
@@ -450,6 +502,71 @@
         await loadMembers();
       } catch (e) {
         setMsg(document.getElementById("memEditMsg"), String(e), false);
+      }
+    }
+
+    async function updateAttendance() {
+      const id = attSelect.value;
+      if (!id) return setMsg(attEditMsg, "Pick an attendance row.", false);
+      const payload = {
+        user_id: attMember.value || null,
+        facility_id: attFacility.value || null,
+        location_id: attLocation.value || null,
+        check_in_time: normalizeDateTime(attCheckIn.value),
+        check_out_time: normalizeDateTime(attCheckOut.value)
+      };
+      try {
+        const res = await fetch(`/admin/attendance/${encodeURIComponent(id)}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", ...authHeaders() },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Update failed");
+        setMsg(attEditMsg, "Attendance updated.", true);
+        await loadAttendance();
+      } catch (e) {
+        setMsg(attEditMsg, String(e), false);
+      }
+    }
+
+    async function deleteAttendance() {
+      const id = attSelect.value;
+      if (!id) return setMsg(attEditMsg, "Pick an attendance row.", false);
+      try {
+        const res = await fetch(`/admin/attendance/${encodeURIComponent(id)}`, {
+          method: "DELETE",
+          headers: authHeaders()
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Delete failed");
+        setMsg(attEditMsg, "Attendance deleted.", true);
+        await loadAttendance();
+      } catch (e) {
+        setMsg(attEditMsg, String(e), false);
+      }
+    }
+
+    async function createAttendance() {
+      const payload = {
+        user_id: attAddMember.value,
+        facility_id: attAddFacility.value,
+        location_id: attAddLocation.value,
+        check_in_time: normalizeDateTime(attAddCheckIn.value),
+        check_out_time: normalizeDateTime(attAddCheckOut.value)
+      };
+      try {
+        const res = await fetch("/admin/attendance", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeaders() },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Create failed");
+        setMsg(attAddMsg, `Created ${data.attendance_id}`, true);
+        await loadAttendance();
+      } catch (e) {
+        setMsg(attAddMsg, String(e), false);
       }
     }
 
@@ -625,6 +742,51 @@
       });
     }
 
+    async function loadLocations() {
+      const res = await fetch("/locations");
+      const data = await res.json();
+      locationCache = data;
+      populateSelect(attLocation, locationCache, (l) => `${l.name} (${l.id})`);
+      populateSelect(attAddLocation, locationCache, (l) => `${l.name} (${l.id})`);
+    }
+
+    async function loadAttendance() {
+      attSelect.innerHTML = "";
+      const res = await fetch("/admin/attendance", { headers: authHeaders() });
+      if (!res.ok) return;
+      const data = await res.json();
+      attendanceCache = data;
+      data.forEach((row) => {
+        const opt = document.createElement("option");
+        opt.value = row.id;
+        opt.textContent = attendanceLabel(row);
+        attSelect.appendChild(opt);
+      });
+      populateSelect(attMember, memberCache, (m) => `${m.first_name} ${m.last_name}`);
+      populateSelect(attAddMember, memberCache, (m) => `${m.first_name} ${m.last_name}`);
+      populateSelect(attFacility, facilityCache, (f) => `${f.name}`);
+      populateSelect(attAddFacility, facilityCache, (f) => `${f.name}`);
+      fillAttendanceFields();
+    }
+
+    function attendanceLabel(row) {
+      const member = memberCache.find((m) => m.id === row.user_id);
+      const fac = facilityCache.find((f) => f.id === row.facility_id);
+      const name = member ? `${member.first_name} ${member.last_name}` : row.user_id;
+      const facName = fac ? fac.name : row.facility_id;
+      return `${formatDateTime(row.check_in_time)} - ${name} - ${facName}`;
+    }
+
+    function populateSelect(select, items, labelFn) {
+      select.innerHTML = "";
+      items.forEach((item) => {
+        const opt = document.createElement("option");
+        opt.value = item.id;
+        opt.textContent = labelFn(item);
+        select.appendChild(opt);
+      });
+    }
+
     async function loadReportFacilities() {
       reportFacilitySelect.innerHTML = "";
       const res = await fetch("/admin/facilities", { headers: authHeaders() });
@@ -677,6 +839,17 @@
       memCurrent.textContent = `Current: ${mem.first_name || ""} ${mem.last_name || ""}${phoneLabel}${promoLabel}${addrLabel}`;
     }
 
+    function fillAttendanceFields() {
+      const id = attSelect.value;
+      const row = attendanceCache.find((r) => r.id === id);
+      if (!row) return;
+      attMember.value = row.user_id || "";
+      attFacility.value = row.facility_id || "";
+      attLocation.value = row.location_id || "";
+      attCheckIn.value = formatDateTime(row.check_in_time);
+      attCheckOut.value = formatDateTime(row.check_out_time);
+    }
+
     function formatPhone(value) {
       const digits = String(value || "").replace(/\D+/g, "");
       if (digits.length === 7) {
@@ -722,6 +895,30 @@
       return v;
     }
 
+    function formatDateTime(value) {
+      if (!value) return "";
+      const parts = String(value).split("T");
+      if (parts.length < 2) return value;
+      const dateParts = parts[0].split("-");
+      if (dateParts.length !== 3) return value;
+      const time = parts[1].slice(0, 5);
+      return `${dateParts[1]}/${dateParts[2]}/${dateParts[0]} ${time}`;
+    }
+
+    function normalizeDateTime(value) {
+      const v = String(value || "").trim();
+      if (!v) return "";
+      const m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})$/);
+      if (m) {
+        const mm = m[1].padStart(2, "0");
+        const dd = m[2].padStart(2, "0");
+        const hh = m[4].padStart(2, "0");
+        const mi = m[5].padStart(2, "0");
+        return `${m[3]}-${mm}-${dd}T${hh}:${mi}:00`;
+      }
+      return v;
+    }
+
     function formatAddress(value) {
       const raw = String(value || "").trim();
       if (!raw) return "";
@@ -752,6 +949,7 @@
     facSelect.addEventListener("change", fillFacilityFields);
     memSelect.addEventListener("change", fillMemberFields);
     reportFacilitySelect.addEventListener("change", loadSummary);
+    attSelect.addEventListener("change", fillAttendanceFields);
 
     function bindPhoneInput(input) {
       if (!input) return;

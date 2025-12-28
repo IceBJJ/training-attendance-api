@@ -234,6 +234,18 @@ def normalize_promotion_input(value: Optional[str]) -> Optional[str]:
     except ValueError:
         return v
 
+def normalize_datetime_input(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    v = value.strip()
+    if not v:
+        return None
+    try:
+        dt = datetime.strptime(v, "%m/%d/%Y %H:%M")
+        return dt.isoformat()
+    except ValueError:
+        return v
+
 def months_since(start: datetime, end: datetime) -> int:
     # Count months elapsed inclusive of the current month.
     months = (end.year - start.year) * 12 + (end.month - start.month)
@@ -327,6 +339,20 @@ class MemberUpdate(BaseModel):
     promotion_start_date: Optional[str] = None
     student_type: Optional[str] = None
     active: Optional[int] = None
+
+class AttendanceCreate(BaseModel):
+    user_id: str
+    facility_id: str
+    location_id: str
+    check_in_time: str
+    check_out_time: Optional[str] = None
+
+class AttendanceUpdate(BaseModel):
+    user_id: Optional[str] = None
+    facility_id: Optional[str] = None
+    location_id: Optional[str] = None
+    check_in_time: Optional[str] = None
+    check_out_time: Optional[str] = None
 
 # ---------- Facilities / Locations ----------
 @app.get("/facilities")
@@ -603,6 +629,92 @@ def admin_update_member(member_id: str, payload: MemberUpdate, request: Request)
 @app.get("/admin/ping")
 def admin_ping(request: Request):
     require_admin(request)
+    return {"status": "ok"}
+
+@app.get("/admin/attendance")
+def admin_list_attendance(request: Request, limit: int = 200):
+    require_admin(request)
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, user_id, facility_id, location_id, check_in_time, check_out_time
+            FROM attendance
+            ORDER BY check_in_time DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+@app.post("/admin/attendance")
+def admin_create_attendance(payload: AttendanceCreate, request: Request):
+    require_admin(request)
+    with get_conn() as conn:
+        attendance_id = f"ATT_{int(datetime.utcnow().timestamp())}_{payload.user_id}"
+        conn.execute(
+            """
+            INSERT INTO attendance (id, user_id, facility_id, location_id, check_in_time, check_out_time)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                attendance_id,
+                payload.user_id,
+                payload.facility_id,
+                payload.location_id,
+                normalize_datetime_input(payload.check_in_time),
+                normalize_datetime_input(payload.check_out_time),
+            ),
+        )
+        conn.commit()
+    return {"status": "ok", "attendance_id": attendance_id}
+
+@app.put("/admin/attendance/{attendance_id}")
+def admin_update_attendance(attendance_id: str, payload: AttendanceUpdate, request: Request):
+    require_admin(request)
+
+    fields = []
+    params: List[object] = []
+    if payload.user_id is not None:
+        fields.append("user_id = ?")
+        params.append(payload.user_id)
+    if payload.facility_id is not None:
+        fields.append("facility_id = ?")
+        params.append(payload.facility_id)
+    if payload.location_id is not None:
+        fields.append("location_id = ?")
+        params.append(payload.location_id)
+    if payload.check_in_time is not None:
+        fields.append("check_in_time = ?")
+        params.append(normalize_datetime_input(payload.check_in_time))
+    if payload.check_out_time is not None:
+        fields.append("check_out_time = ?")
+        params.append(normalize_datetime_input(payload.check_out_time))
+
+    if not fields:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    params.append(attendance_id)
+
+    with get_conn() as conn:
+        cur = conn.execute(
+            f"UPDATE attendance SET {', '.join(fields)} WHERE id = ?",
+            tuple(params),
+        )
+        conn.commit()
+
+    if cur.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Attendance not found")
+
+    return {"status": "ok"}
+
+@app.delete("/admin/attendance/{attendance_id}")
+def admin_delete_attendance(attendance_id: str, request: Request):
+    require_admin(request)
+    with get_conn() as conn:
+        cur = conn.execute("DELETE FROM attendance WHERE id = ?", (attendance_id,))
+        conn.commit()
+    if cur.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Attendance not found")
     return {"status": "ok"}
 
 @app.get("/members/lookup")
