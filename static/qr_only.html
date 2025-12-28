@@ -1,0 +1,208 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BJJ QR Check-In</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 16px; max-width: 520px; margin: 0 auto; }
+    h2 { margin: 8px 0 16px; }
+    label { display:block; margin-top: 10px; font-weight: 600; }
+    input, button { font-size: 18px; padding: 10px; width: 100%; margin-top: 6px; box-sizing: border-box; }
+    button { cursor: pointer; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .msg { margin-top: 12px; padding: 12px; border-radius: 10px; border: 1px solid #ddd; white-space: pre-wrap; }
+    #reader { margin-top: 14px; }
+    .small { font-size: 13px; opacity: 0.8; margin-top: 10px; }
+    .ok { border-color: #b7e4c7; }
+    .bad { border-color: #f4acb7; }
+    .home-link { margin-bottom: 12px; }
+    .home-link a {
+      display: inline-block;
+      padding: 8px 12px;
+      border-radius: 10px;
+      background: #f5f5f5;
+      color: #222;
+      text-decoration: none;
+      font-weight: 600;
+      border: 1px solid #ddd;
+    }
+  </style>
+</head>
+<body>
+  <div class="home-link">
+    <a href="/home">&lt;- Home</a>
+  </div>
+  <h2>BJJ QR Check-In <span style="font-size:12px;opacity:0.6;">v1.0.2</span></h2>
+
+  <div class="row">
+    <div>
+      <label>First name</label>
+      <input id="first" placeholder="First" />
+    </div>
+    <div>
+      <label>Last name</label>
+      <input id="last" placeholder="Last" />
+    </div>
+  </div>
+
+  <label>Phone (optional)</label>
+  <input id="phone" placeholder="4195551234" />
+  <div class="small">Country code is OK; we use the last 10 digits.</div>
+
+  <button onclick="saveIdentity()">Save name on this phone</button>
+  <button onclick="startScan()">Scan QR</button>
+  <button onclick="stopScan()">Stop scan</button>
+
+  <div id="out" class="msg">Enter your name, tap Save, then Scan QR.</div>
+
+  <div id="reader"></div>
+
+  <div class="small">
+    Tip: You must open this page from https://... (not a file) to use the camera. If camera fails, allow camera permissions.
+  </div>
+
+  <script src="https://unpkg.com/html5-qrcode"></script>
+
+  <script>
+    const out = document.getElementById("out");
+    const firstEl = document.getElementById("first");
+    const lastEl  = document.getElementById("last");
+    const phoneEl = document.getElementById("phone");
+
+    function show(msg, ok=null) {
+      out.textContent = msg;
+      out.classList.remove("ok","bad");
+      if (ok === true) out.classList.add("ok");
+      if (ok === false) out.classList.add("bad");
+    }
+
+    function apiUrl(path) {
+      return new URL(path, window.location.origin).toString();
+    }
+
+    firstEl.value = localStorage.getItem("bjj_first") || "";
+    lastEl.value  = localStorage.getItem("bjj_last")  || "";
+    phoneEl.value = localStorage.getItem("bjj_phone") || "";
+
+    function normalizePhone(value) {
+      const digits = String(value || "").replace(/\D+/g, "");
+      if (!digits) return "";
+      return digits.length > 10 ? digits.slice(-10) : digits;
+    }
+
+    function formatPhonePartial(value) {
+      const digits = String(value || "").replace(/\D+/g, "");
+      if (digits.length <= 3) return digits;
+      if (digits.length <= 6) return `${digits.slice(0,3)}-${digits.slice(3)}`;
+      if (digits.length <= 10) {
+        const area = digits.slice(0,3);
+        const mid = digits.slice(3,6);
+        const tail = digits.slice(6);
+        return `(${area}) ${mid}-${tail}`;
+      }
+      return `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6,10)}`;
+    }
+
+    phoneEl.value = formatPhonePartial(phoneEl.value);
+    phoneEl.addEventListener("input", () => {
+      phoneEl.value = formatPhonePartial(phoneEl.value);
+    });
+
+    function getIdentity() {
+      const first = (firstEl.value || "").trim();
+      const last  = (lastEl.value || "").trim();
+      const phone = normalizePhone(phoneEl.value || "");
+      if (!first || !last) return null;
+      return { first, last, phone: phone || null };
+    }
+
+    function saveIdentity() {
+      const id = getIdentity();
+      if (!id) return show("Please enter first and last name.", false);
+      localStorage.setItem("bjj_first", id.first);
+      localStorage.setItem("bjj_last", id.last);
+      localStorage.setItem("bjj_phone", id.phone || "");
+      show(`Saved: ${id.first} ${id.last}`, true);
+    }
+
+    let html5Qr = null;
+    let scanning = false;
+
+    async function startScan() {
+      const id = getIdentity();
+      if (!id) return show("Enter your name first (first + last).", false);
+      if (scanning) return;
+
+      html5Qr = new Html5Qrcode("reader");
+      scanning = true;
+
+      show("Starting camera... point it at the facility QR code.");
+
+      try {
+        await html5Qr.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 250, height: 250 } },
+          async (decodedText) => {
+            await stopScan();
+
+            const scanEndpoint = apiUrl("/scan");
+            show(`QR read: ${decodedText}\nRecording check-in...`);
+
+            const payload = {
+              qr_value: decodedText,
+              first_name: id.first,
+              last_name: id.last,
+              phone: id.phone || null
+            };
+
+            let res, bodyText;
+            try {
+              res = await fetch(scanEndpoint, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+              });
+              bodyText = await res.text();
+            } catch (e) {
+              return show(`Check-in failed (network/error)\n${e}`, false);
+            }
+
+            let data = null;
+            try { data = JSON.parse(bodyText); } catch {}
+
+            if (!res.ok) {
+              const detail = (data && (data.detail || data.message)) ? (data.detail || data.message) : bodyText;
+              return show(`Check-in failed\nHTTP ${res.status}\n${detail}`, false);
+            }
+
+            if (data && data.status === "ok") {
+              const fac = data.facility_name || data.facility_id || "facility";
+              show(`Check-in recorded at ${fac}\n${data.member_name ? "Member: " + data.member_name : ""}`, true);
+            } else if (data && data.status === "ignored") {
+              show("Already checked in recently (15 min rule).", true);
+            } else if (data && data.status === "too_soon") {
+              show("Too soon - blocked (30 min rule).", false);
+            } else {
+              show(`Done\n${bodyText}`, true);
+            }
+          },
+          (_err) => {
+            // Ignore per-frame scan errors.
+          }
+        );
+      } catch (e) {
+        scanning = false;
+        show(`Camera start failed.\nAllow camera permissions.\nDetails: ${e}`, false);
+      }
+    }
+
+    async function stopScan() {
+      if (!html5Qr || !scanning) return;
+      try { await html5Qr.stop(); } catch {}
+      try { await html5Qr.clear(); } catch {}
+      scanning = false;
+    }
+  </script>
+</body>
+</html>

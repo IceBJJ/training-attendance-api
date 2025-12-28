@@ -61,6 +61,13 @@ def qr_list_page():
         raise HTTPException(status_code=404, detail="qr_list.html not found in ./static")
     return FileResponse(path)
 
+@app.get("/qr-only")
+def qr_only_page():
+    path = os.path.join(STATIC_DIR, "qr_only.html")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="qr_only.html not found in ./static")
+    return FileResponse(path)
+
 @app.get("/facilities/view")
 def facilities_view():
     path = os.path.join(STATIC_DIR, "facilities.html")
@@ -240,8 +247,14 @@ def normalize_datetime_input(value: Optional[str]) -> Optional[str]:
     v = value.strip()
     if not v:
         return None
+    for fmt in ("%m/%d/%Y %H:%M", "%m/%d/%Y", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+        try:
+            dt = datetime.strptime(v, fmt)
+            return dt.isoformat()
+        except ValueError:
+            continue
     try:
-        dt = datetime.strptime(v, "%m/%d/%Y %H:%M")
+        dt = datetime.fromisoformat(v)
         return dt.isoformat()
     except ValueError:
         return v

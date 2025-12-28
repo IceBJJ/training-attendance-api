@@ -1017,6 +1017,16 @@
         const mi = m[5].padStart(2, "0");
         return `${m[3]}-${mm}-${dd}T${hh}:${mi}:00`;
       }
+      const dateOnly = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (dateOnly) {
+        const mm = dateOnly[1].padStart(2, "0");
+        const dd = dateOnly[2].padStart(2, "0");
+        return `${dateOnly[3]}-${mm}-${dd}T00:00:00`;
+      }
+      const isoDate = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (isoDate) {
+        return `${isoDate[1]}-${isoDate[2]}-${isoDate[3]}T00:00:00`;
+      }
       return v;
     }
 
