@@ -55,6 +55,24 @@ def upsert_postgres(conn, table: str, columns: list[str], update_cols: list[str]
     return len(rows)
 
 
+def load_neon_member_map(conn) -> dict[tuple, str]:
+    cur = conn.cursor()
+    cur.execute("SELECT id, first_name, last_name, phone FROM members")
+    mapping = {}
+    for row in cur.fetchall():
+        key = (row[1], row[2], row[3])
+        mapping[key] = row[0]
+    return mapping
+
+
+def load_local_member_map(conn) -> dict[str, tuple]:
+    cur = conn.execute("SELECT id, first_name, last_name, phone FROM members")
+    mapping = {}
+    for row in cur.fetchall():
+        mapping[row[0]] = (row[1], row[2], row[3])
+    return mapping
+
+
 def main() -> None:
     db_url = os.getenv("DATABASE_URL")
     if not db_url:
@@ -64,9 +82,35 @@ def main() -> None:
     pg_conn = psycopg2.connect(db_url)
 
     try:
+        neon_member_by_key = load_neon_member_map(pg_conn)
+        local_member_by_id = load_local_member_map(sqlite_conn)
         counts = {}
         for table, columns, update_cols in TABLES:
             rows = fetch_sqlite_rows(sqlite_conn, table, columns)
+
+            if table == "members":
+                remapped = []
+                for row in rows:
+                    row = list(row)
+                    key = (row[1], row[2], row[3])
+                    existing_id = neon_member_by_key.get(key)
+                    if existing_id:
+                        row[0] = existing_id
+                    remapped.append(tuple(row))
+                rows = remapped
+
+            if table == "attendance":
+                remapped = []
+                for row in rows:
+                    row = list(row)
+                    local_key = local_member_by_id.get(row[1])
+                    if local_key:
+                        mapped_id = neon_member_by_key.get(local_key)
+                        if mapped_id:
+                            row[1] = mapped_id
+                    remapped.append(tuple(row))
+                rows = remapped
+
             counts[table] = upsert_postgres(pg_conn, table, columns, update_cols, rows)
         pg_conn.commit()
     finally:
