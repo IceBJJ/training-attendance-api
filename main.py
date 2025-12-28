@@ -82,6 +82,51 @@ def attendance_view():
         raise HTTPException(status_code=404, detail="attendance.html not found in ./static")
     return FileResponse(path)
 
+@app.get("/reports/attendance-by-facility")
+def report_attendance_by_facility():
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT
+              a.user_id,
+              m.first_name,
+              m.last_name,
+              a.facility_id,
+              f.name AS facility_name,
+              COUNT(*) AS sessions
+            FROM attendance a
+            LEFT JOIN members m ON m.id = a.user_id
+            LEFT JOIN facilities f ON f.id = a.facility_id
+            GROUP BY a.user_id, m.first_name, m.last_name, a.facility_id, f.name
+            ORDER BY m.last_name, m.first_name, a.facility_id
+            """
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+@app.get("/reports/attendance-by-facility.csv")
+def report_attendance_by_facility_csv():
+    rows = report_attendance_by_facility()
+    header = [
+        "user_id",
+        "first_name",
+        "last_name",
+        "facility_id",
+        "facility_name",
+        "sessions",
+    ]
+    lines = [",".join(header)]
+    for r in rows:
+        line = [
+            str(r.get("user_id") or ""),
+            str(r.get("first_name") or ""),
+            str(r.get("last_name") or ""),
+            str(r.get("facility_id") or ""),
+            str(r.get("facility_name") or ""),
+            str(r.get("sessions") or ""),
+        ]
+        lines.append(",".join(line))
+    return Response("\n".join(lines), media_type="text/csv")
+
 @app.get("/qr/{facility_id}")
 def qr_print_page(facility_id: str):
     path = os.path.join(STATIC_DIR, "qr_print.html")
