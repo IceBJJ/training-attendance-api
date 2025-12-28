@@ -132,6 +132,7 @@
         if (!res.ok) throw new Error("Load failed");
         setMsg(`Loaded ${data.length} members.`);
         renderSummary(data);
+        detail.innerHTML = "";
       } catch (e) {
         setMsg(String(e));
       }
@@ -229,6 +230,7 @@
       });
     }
 
+    facilitySelect.addEventListener("change", loadSummary);
     loadFacilities();
   </script>
 </body>
