@@ -912,6 +912,56 @@ def report_members_summary_data(facility_id: Optional[str] = None):
 
     return results
 
+def report_members_post_promotion_data(facility_id: Optional[str] = None):
+    now = datetime.utcnow()
+
+    with get_conn() as conn:
+        members = conn.execute(
+            """
+            SELECT id, first_name, last_name, belt_rank, promotion_start_date, student_type, active
+            FROM members
+            WHERE promotion_start_date IS NOT NULL AND promotion_start_date != ''
+            ORDER BY last_name, first_name
+            """
+        ).fetchall()
+
+        results = []
+        for m in members:
+            start = parse_promotion_date(m["promotion_start_date"])
+            if not start:
+                continue
+
+            params: List[object] = [m["id"], start.isoformat()]
+            where = "user_id = ? AND check_in_time >= ?"
+            if facility_id:
+                where += " AND facility_id = ?"
+                params.append(facility_id)
+
+            count_row = conn.execute(
+                f"SELECT COUNT(*) AS c FROM attendance WHERE {where}",
+                tuple(params),
+            ).fetchone()
+
+            total_sessions = int(count_row["c"]) if count_row else 0
+            if total_sessions == 0:
+                continue
+
+            results.append(
+                {
+                    "id": m["id"],
+                    "first_name": m["first_name"],
+                    "last_name": m["last_name"],
+                    "belt_rank": m["belt_rank"],
+                    "student_type": m["student_type"],
+                    "promotion_start_date": m["promotion_start_date"],
+                    "months_since_promotion": months_since(start, now),
+                    "sessions_since_promotion": total_sessions,
+                    "active": m["active"],
+                }
+            )
+
+    return results
+
 def report_member_detail_data(member_id: str, facility_id: Optional[str] = None):
     now = datetime.utcnow()
 
@@ -981,10 +1031,19 @@ def report_member_detail_data(member_id: str, facility_id: Optional[str] = None)
 def report_members_summary_public(facility_id: Optional[str] = None):
     return report_members_summary_data(facility_id=facility_id)
 
+@app.get("/reports/members-post-promotion")
+def report_members_post_promotion_public(facility_id: Optional[str] = None):
+    return report_members_post_promotion_data(facility_id=facility_id)
+
 @app.get("/admin/reports/members-summary")
 def report_members_summary(request: Request, facility_id: Optional[str] = None):
     require_admin(request)
     return report_members_summary_data(facility_id=facility_id)
+
+@app.get("/admin/reports/members-post-promotion")
+def report_members_post_promotion(request: Request, facility_id: Optional[str] = None):
+    require_admin(request)
+    return report_members_post_promotion_data(facility_id=facility_id)
 
 @app.get("/admin/reports/members-summary.csv")
 def report_members_summary_csv(request: Request, facility_id: Optional[str] = None):
@@ -1019,9 +1078,73 @@ def report_members_summary_csv(request: Request, facility_id: Optional[str] = No
 
     return Response("\n".join(lines), media_type="text/csv")
 
+@app.get("/admin/reports/members-post-promotion.csv")
+def report_members_post_promotion_csv(request: Request, facility_id: Optional[str] = None):
+    require_admin(request)
+    rows = report_members_post_promotion_data(facility_id=facility_id)
+
+    header = [
+        "id",
+        "first_name",
+        "last_name",
+        "belt_rank",
+        "student_type",
+        "promotion_start_date",
+        "months_since_promotion",
+        "sessions_since_promotion",
+        "active",
+    ]
+    lines = [",".join(header)]
+    for r in rows:
+        line = [
+            str(r.get("id") or ""),
+            str(r.get("first_name") or ""),
+            str(r.get("last_name") or ""),
+            str(r.get("belt_rank") or ""),
+            str(r.get("student_type") or ""),
+            str(r.get("promotion_start_date") or ""),
+            str(r.get("months_since_promotion") or ""),
+            str(r.get("sessions_since_promotion") or ""),
+            str(r.get("active") or ""),
+        ]
+        lines.append(",".join(line))
+
+    return Response("\n".join(lines), media_type="text/csv")
+
 @app.get("/reports/members-summary.csv")
 def report_members_summary_csv_public(facility_id: Optional[str] = None):
     rows = report_members_summary_data(facility_id=facility_id)
+    header = [
+        "id",
+        "first_name",
+        "last_name",
+        "belt_rank",
+        "student_type",
+        "promotion_start_date",
+        "months_since_promotion",
+        "sessions_since_promotion",
+        "active",
+    ]
+    lines = [",".join(header)]
+    for r in rows:
+        line = [
+            str(r.get("id") or ""),
+            str(r.get("first_name") or ""),
+            str(r.get("last_name") or ""),
+            str(r.get("belt_rank") or ""),
+            str(r.get("student_type") or ""),
+            str(r.get("promotion_start_date") or ""),
+            str(r.get("months_since_promotion") or ""),
+            str(r.get("sessions_since_promotion") or ""),
+            str(r.get("active") or ""),
+        ]
+        lines.append(",".join(line))
+
+    return Response("\n".join(lines), media_type="text/csv")
+
+@app.get("/reports/members-post-promotion.csv")
+def report_members_post_promotion_csv_public(facility_id: Optional[str] = None):
+    rows = report_members_post_promotion_data(facility_id=facility_id)
     header = [
         "id",
         "first_name",

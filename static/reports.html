@@ -101,6 +101,11 @@
     <div id="msg" class="msg"></div>
     <div id="summary"></div>
 
+    <h2 style="margin-top:16px;">Post-Promotion Attendance</h2>
+    <button onclick="loadPostPromotion()">Load Post-Promotion</button>
+    <button onclick="exportPostPromotion()">Export Post-Promotion CSV</button>
+    <div id="postPromotion"></div>
+
     <label>Member detail</label>
     <select id="memberSelect"></select>
     <button onclick="loadDetail()">Load Member Detail</button>
@@ -120,6 +125,7 @@
     const detail = document.getElementById("detail");
     const facilitySelect = document.getElementById("facilitySelect");
     const attendanceSummary = document.getElementById("attendanceSummary");
+    const postPromotion = document.getElementById("postPromotion");
 
     function setMsg(text) {
       msg.textContent = text;
@@ -218,6 +224,51 @@
       const id = memberSelect.value;
       if (!id) return;
       window.open(`/reports/member/${encodeURIComponent(id)}.csv${facilityQuery()}`, "_blank");
+    }
+
+    async function loadPostPromotion() {
+      try {
+        const res = await fetch(`/reports/members-post-promotion${facilityQuery()}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error("Load failed");
+        renderPostPromotion(data);
+      } catch (e) {
+        postPromotion.innerHTML = `<div class="msg">${String(e)}</div>`;
+      }
+    }
+
+    function renderPostPromotion(rows) {
+      postPromotion.innerHTML = "";
+      const table = document.createElement("table");
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Belt</th>
+            <th>Promotion Date</th>
+            <th>Sessions Since Promotion</th>
+            <th>Months Since Promotion</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      `;
+      const tbody = table.querySelector("tbody");
+      rows.forEach((r) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${r.last_name}, ${r.first_name}</td>
+          <td>${r.belt_rank || ""}</td>
+          <td>${r.promotion_start_date || ""}</td>
+          <td>${r.sessions_since_promotion}</td>
+          <td>${r.months_since_promotion ?? ""}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+      postPromotion.appendChild(table);
+    }
+
+    function exportPostPromotion() {
+      window.open(`/reports/members-post-promotion.csv${facilityQuery()}`, "_blank");
     }
 
     async function loadAttendanceByFacility() {

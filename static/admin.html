@@ -286,6 +286,9 @@
       <button class="secondary" onclick="exportSummary()">Export Summary CSV</button>
       <div id="reportMsg" class="msg"></div>
       <div id="summaryWrap"></div>
+      <button onclick="loadPostPromotion()">Load Post-Promotion</button>
+      <button class="secondary" onclick="exportPostPromotion()">Export Post-Promotion CSV</button>
+      <div id="postPromotionWrap"></div>
       <label>Member detail</label>
       <select id="memberSelect"></select>
       <button class="secondary" onclick="loadMemberDetail()">Load Member Detail</button>
@@ -304,6 +307,7 @@
     const authMsg = document.getElementById("authMsg");
     const reportMsg = document.getElementById("reportMsg");
     const summaryWrap = document.getElementById("summaryWrap");
+    const postPromotionWrap = document.getElementById("postPromotionWrap");
     const memberSelect = document.getElementById("memberSelect");
     const memberDetail = document.getElementById("memberDetail");
     const facSelect = document.getElementById("facSelect");
@@ -622,6 +626,47 @@
       summaryWrap.appendChild(table);
     }
 
+    async function loadPostPromotion() {
+      try {
+        const res = await fetch(`/admin/reports/members-post-promotion${reportFacilityQuery()}`, { headers: authHeaders() });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Load failed");
+        renderPostPromotion(data);
+      } catch (e) {
+        postPromotionWrap.innerHTML = `<div class="msg bad">${String(e)}</div>`;
+      }
+    }
+
+    function renderPostPromotion(rows) {
+      postPromotionWrap.innerHTML = "";
+      const table = document.createElement("table");
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Belt</th>
+            <th>Promotion Date</th>
+            <th>Sessions Since Promotion</th>
+            <th>Months Since Promotion</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      `;
+      const tbody = table.querySelector("tbody");
+      rows.forEach((r) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${r.last_name}, ${r.first_name}</td>
+          <td>${r.belt_rank || ""}</td>
+          <td>${r.promotion_start_date || ""}</td>
+          <td>${r.sessions_since_promotion}</td>
+          <td>${r.months_since_promotion ?? ""}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+      postPromotionWrap.appendChild(table);
+    }
+
     // Detailed report for a single member.
     async function loadMemberDetail() {
       const id = memberSelect.value;
@@ -662,6 +707,17 @@
         downloadBlob(blob, "members_summary.csv");
       } catch (e) {
         setMsg(reportMsg, String(e), false);
+      }
+    }
+
+    async function exportPostPromotion() {
+      try {
+        const res = await fetch(`/admin/reports/members-post-promotion.csv${reportFacilityQuery()}`, { headers: authHeaders() });
+        if (!res.ok) throw new Error("Export failed");
+        const blob = await res.blob();
+        downloadBlob(blob, "members_post_promotion.csv");
+      } catch (e) {
+        postPromotionWrap.innerHTML = `<div class="msg bad">${String(e)}</div>`;
       }
     }
 
