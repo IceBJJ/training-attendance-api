@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Request, Response
 from pydantic import BaseModel
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Dict
 import re
 import uuid
@@ -164,6 +164,34 @@ FACILITY_MINUTES = 30
 def utcnow_iso() -> str:
     # UTC timestamp stored as ISO 8601 string.
     return datetime.utcnow().isoformat()
+
+def coerce_db_datetime(value: object) -> Optional[datetime]:
+    # Accept strings or datetime values from different DB backends.
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        dt = value
+    else:
+        s = str(value)
+        try:
+            dt = datetime.fromisoformat(s)
+        except ValueError:
+            if s.endswith("Z"):
+                try:
+                    dt = datetime.fromisoformat(s[:-1] + "+00:00")
+                except ValueError:
+                    return None
+            else:
+                return None
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
+
+def normalize_ts(value: datetime) -> datetime:
+    # Ensure timestamps are naive UTC for comparisons.
+    if value.tzinfo is not None:
+        return value.astimezone(timezone.utc).replace(tzinfo=None)
+    return value
 
 def normalize_name(s: str) -> str:
     # Trim input to avoid whitespace mismatches.
@@ -749,7 +777,7 @@ def member_lookup(first_name: str, last_name: str, phone: Optional[str] = None):
 # ---------- Scan / Attendance ----------
 @app.post("/scan")
 def scan_qr(payload: ScanRequest):
-    ts = payload.timestamp or datetime.utcnow()
+    ts = normalize_ts(payload.timestamp or datetime.utcnow())
 
     fn = normalize_name(payload.first_name)
     ln = normalize_name(payload.last_name)
@@ -798,30 +826,31 @@ def scan_qr(payload: ScanRequest):
         ).fetchone()
 
         if last:
-            last_time = datetime.fromisoformat(last["check_in_time"])
-            minutes = (ts - last_time).total_seconds() / 60.0
+            last_time = coerce_db_datetime(last["check_in_time"])
+            if last_time:
+                minutes = (ts - last_time).total_seconds() / 60.0
 
-            if minutes < IGNORE_MINUTES:
-                return {
-                    "status": "ignored",
-                    "message": f"Scan ignored (within {IGNORE_MINUTES} minutes).",
-                    "member_id": member_id,
-                    "member_name": f"{member['first_name']} {member['last_name']}",
-                    "facility_id": facility_id,
-                    "minutes_since_last": round(minutes, 2),
-                    "timestamp": ts.isoformat(),
-                }
+                if minutes < IGNORE_MINUTES:
+                    return {
+                        "status": "ignored",
+                        "message": f"Scan ignored (within {IGNORE_MINUTES} minutes).",
+                        "member_id": member_id,
+                        "member_name": f"{member['first_name']} {member['last_name']}",
+                        "facility_id": facility_id,
+                        "minutes_since_last": round(minutes, 2),
+                        "timestamp": ts.isoformat(),
+                    }
 
-            if minutes < FACILITY_MINUTES:
-                return {
-                    "status": "too_soon",
-                    "message": f"Scan blocked (must wait {FACILITY_MINUTES} minutes between check-ins at a facility).",
-                    "member_id": member_id,
-                    "member_name": f"{member['first_name']} {member['last_name']}",
-                    "facility_id": facility_id,
-                    "minutes_since_last": round(minutes, 2),
-                    "timestamp": ts.isoformat(),
-                }
+                if minutes < FACILITY_MINUTES:
+                    return {
+                        "status": "too_soon",
+                        "message": f"Scan blocked (must wait {FACILITY_MINUTES} minutes between check-ins at a facility).",
+                        "member_id": member_id,
+                        "member_name": f"{member['first_name']} {member['last_name']}",
+                        "facility_id": facility_id,
+                        "minutes_since_last": round(minutes, 2),
+                        "timestamp": ts.isoformat(),
+                    }
 
         # 4) Insert attendance
         attendance_id = f"ATT_{int(ts.timestamp())}_{member_id}"
@@ -1027,7 +1056,9 @@ def report_member_detail_data(member_id: str, facility_id: Optional[str] = None)
 
         bucket: Dict[str, int] = {}
         for row in rows:
-            ts = datetime.fromisoformat(row["check_in_time"])
+            ts = coerce_db_datetime(row["check_in_time"])
+            if not ts:
+                continue
             key = f"{ts.year:04d}-{ts.month:02d}"
             bucket[key] = bucket.get(key, 0) + 1
 
